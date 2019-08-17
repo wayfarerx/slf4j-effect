@@ -49,7 +49,7 @@ object Level extends (slf4j.Level => Level) {
 
   /** Logging levels indexed by SLF4J `Level` string. */
   private lazy val levelsBySlf4jLevelStr: Map[String, Level] =
-    Levels.iterator.map(l => l.toString.toUpperCase -> l).toMap
+    Levels.iterator.map(l => l.toString().toUpperCase -> l).toMap
 
   /**
    * Returns the logging level for the specified SLF4J `Level`.

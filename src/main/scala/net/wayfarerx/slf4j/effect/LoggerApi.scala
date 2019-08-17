@@ -161,7 +161,7 @@ trait LoggerApi[-R] {
    * Logs a message at the specified level.
    *
    * @param level The level to log the message at.
-   * @param f A function that returns the log message.
+   * @param f     A function that returns the log message.
    * @return An effect that logs a message at the specified level.
    */
   def log(level: Level, f: => String): Effect[Unit]
@@ -170,10 +170,20 @@ trait LoggerApi[-R] {
    * Logs a message and `Throwable` at the specified level.
    *
    * @param level The level to log the message and `Throwable` at.
-   * @param f A function that returns the log message.
-   * @param t The `Throwable` to log.
+   * @param f     A function that returns the log message.
+   * @param t     The `Throwable` to log.
    * @return An effect that logs a message and `Throwable` at the specified level.
    */
   def log(level: Level, f: => String, t: Throwable): Effect[Unit]
+
+}
+
+/**
+ * Definitions that support the `LoggerApi` trait.
+ */
+object LoggerApi {
+
+  /** The type of logger APIs with a fixed environment. */
+  type Aux[R] = LoggerApi[R] {type Effect[+A] = URIO[R, A]}
 
 }

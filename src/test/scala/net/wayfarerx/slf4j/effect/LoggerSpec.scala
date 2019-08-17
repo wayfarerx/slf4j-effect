@@ -44,11 +44,11 @@ final class LoggerSpec extends FlatSpec with Matchers with MockFactory {
   it should "recover from logging failures" in {
     val thrown = new RuntimeException
     val mockLogger = mock[Slf4jLogger]
-    (() => mockLogger.isErrorEnabled).expects().returning(true).twice
-    (mockLogger.error(_: String)).expects("message1").throws(new RuntimeException).once
-    (mockLogger.error(_: String, _: Throwable)).expects("message2", thrown).throws(new RuntimeException).once
+    (() => mockLogger.isErrorEnabled).expects().returning(true).twice()
+    (mockLogger.error(_: String)).expects("message1").throws(new RuntimeException).once()
+    (mockLogger.error(_: String, _: Throwable)).expects("message2", thrown).throws(new RuntimeException).once()
     val mockConsole = mock[Console.Service[Any]]
-    (mockConsole.putStr _).expects(where[String](_.startsWith(s"${Level.Error} "))).returning(UIO.unit).twice
+    (mockConsole.putStr _).expects(where[String](_.startsWith(s"${Level.Error} "))).returning(UIO.unit).twice()
     val logger = Logger.Live(mockLogger, console = mockConsole).logger
     runtime.unsafeRun {
       for {

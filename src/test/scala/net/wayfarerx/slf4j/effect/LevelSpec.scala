@@ -39,16 +39,16 @@ final class LevelSpec extends FlatSpec with Matchers {
   }
 
   it should "convert to and from a string" in {
-    Level.Trace.toString shouldBe slf4j.Level.TRACE.toString
-    Level(slf4j.Level.TRACE.toString) shouldBe Some(Level.Trace)
-    Level.Debug.toString shouldBe slf4j.Level.DEBUG.toString
-    Level(slf4j.Level.DEBUG.toString) shouldBe Some(Level.Debug)
-    Level.Info.toString shouldBe slf4j.Level.INFO.toString
-    Level(slf4j.Level.INFO.toString) shouldBe Some(Level.Info)
-    Level.Warn.toString shouldBe slf4j.Level.WARN.toString
-    Level(slf4j.Level.WARN.toString) shouldBe Some(Level.Warn)
-    Level.Error.toString shouldBe slf4j.Level.ERROR.toString
-    Level(slf4j.Level.ERROR.toString) shouldBe Some(Level.Error)
+    Level.Trace.toString() shouldBe slf4j.Level.TRACE.toString()
+    Level(slf4j.Level.TRACE.toString()) shouldBe Some(Level.Trace)
+    Level.Debug.toString() shouldBe slf4j.Level.DEBUG.toString()
+    Level(slf4j.Level.DEBUG.toString()) shouldBe Some(Level.Debug)
+    Level.Info.toString() shouldBe slf4j.Level.INFO.toString()
+    Level(slf4j.Level.INFO.toString()) shouldBe Some(Level.Info)
+    Level.Warn.toString() shouldBe slf4j.Level.WARN.toString()
+    Level(slf4j.Level.WARN.toString()) shouldBe Some(Level.Warn)
+    Level.Error.toString() shouldBe slf4j.Level.ERROR.toString()
+    Level(slf4j.Level.ERROR.toString()) shouldBe Some(Level.Error)
     Level("") shouldBe None
   }
 

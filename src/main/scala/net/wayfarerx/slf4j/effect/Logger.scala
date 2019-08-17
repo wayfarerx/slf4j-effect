@@ -29,7 +29,7 @@ import zio.console.Console
 trait Logger {
 
   /** The provided logger service. */
-  def logger: LoggerApi[Any]
+  def logger: LoggerApi.Aux[Any]
 
 }
 
@@ -64,7 +64,7 @@ object Logger {
     val slf4jLogger: slf4j.Logger
 
     /* Implement the logger API. */
-    final override val logger: LoggerApi[Any] = new LoggerApi[Any] {
+    final override val logger: LoggerApi.Aux[Any] = new LoggerApi[Any] {
 
       /* This API's effects are unbound. */
       override type Effect[+A] = UIO[A]
@@ -104,10 +104,8 @@ object Logger {
           val out = new PrintWriter(result)
 
           /* Print the specified lines with the level prefix and indent. */
-          def printLines(lines: String): Unit =
-            lines.linesWithSeparators map (_.stripLineEnd) filterNot (_.trim.isEmpty) foreach { line =>
-              out.println(s"$level   $line")
-            }
+          def printLines(string: String): Unit =
+            string.linesIterator filterNot (_.trim.isEmpty) foreach (l =>out.println(s"$level   $l"))
 
           out.println(s"$level Unable to submit log entry:")
           printLines(message)

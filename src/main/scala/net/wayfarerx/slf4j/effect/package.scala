@@ -20,23 +20,28 @@ import language.higherKinds
 import zio.{URIO, ZIO}
 
 /**
- * Global access to the SLF4J logger operations.
+ * Global definitions for the effectual SLF4J logger adapter.
  */
-package object effect extends LoggerApi[Logger] {
+package object effect {
 
-  /* This API's effects are bound to a `Logger`. */
-  override type Effect[+A] = URIO[Logger, A]
+  /** Global logger API access via an environmental logger. */
+  val logger: LoggerApi.Aux[Logger] = new LoggerApi[Logger] {
 
-  /* Return true if the specified logging level is enabled. */
-  override def isEnabled(level: Level): Effect[Boolean] =
-    ZIO.accessM[Logger](_.logger.isEnabled(level))
+    /* This API's effects are bound to a `Logger`. */
+    override type Effect[+A] = URIO[Logger, A]
 
-  /* Log a message at the specified level. */
-  override def log(level: Level, f: => String): Effect[Unit] =
-    ZIO.accessM[Logger](_.logger.log(level, f))
+    /* Return true if the specified logging level is enabled. */
+    override def isEnabled(level: Level): Effect[Boolean] =
+      ZIO.accessM[Logger](_.logger.isEnabled(level))
 
-  /* Log a message and `Throwable` at the specified level. */
-  override def log(level: Level, f: => String, t: Throwable): Effect[Unit] =
-    ZIO.accessM[Logger](_.logger.log(level, f, t))
+    /* Log a message at the specified level. */
+    override def log(level: Level, f: => String): Effect[Unit] =
+      ZIO.accessM[Logger](_.logger.log(level, f))
+
+    /* Log a message and `Throwable` at the specified level. */
+    override def log(level: Level, f: => String, t: Throwable): Effect[Unit] =
+      ZIO.accessM[Logger](_.logger.log(level, f, t))
+
+  }
 
 }
