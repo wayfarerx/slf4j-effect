@@ -11,6 +11,7 @@ env:
 script:
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
   - 'bash <(curl -s https://codecov.io/bash)'
+  - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then sbt ++$TRAVIS_SCALA_VERSION publish; fi'
 
 branches:
   only:

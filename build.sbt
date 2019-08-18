@@ -21,6 +21,7 @@ libraryDependencies ++= Seq(Slf4j, Zio, ScalaTest % Test, ScalaMock % Test, Logb
 coverageMinimum := 100
 coverageFailOnMinimum := true
 
+publishMavenStyle := true
 publishTo := {
   if (isSnapshot.value) Some(WayfarerxSnapshotsS3) else Some(WayfarerxReleasesS3)
 }
