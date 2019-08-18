@@ -5,8 +5,12 @@ scala:
   - 2.12.9
   - 2.13.0
 
+env:
+  - CODECOV_TOKEN="a8d047ad-d7c9-44ec-b31d-91bd1262f4e6"
+
 script:
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
+  - 'bash <(curl -s https://codecov.io/bash)'
 
 branches:
   only:
