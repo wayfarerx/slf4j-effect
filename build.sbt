@@ -1,5 +1,7 @@
 import Dependencies._
 
+resolvers ++= Seq(WayfarerxReleases, WayfarerxSnapshots)
+
 lazy val scala2_12 = "2.12.9"
 lazy val scala2_13 = "2.13.0"
 
@@ -18,3 +20,7 @@ libraryDependencies ++= Seq(Slf4j, Zio, ScalaTest % Test, ScalaMock % Test, Logb
 
 coverageMinimum := 100
 coverageFailOnMinimum := true
+
+publishTo := {
+  if (isSnapshot.value) Some(WayfarerxSnapshotsS3) else Some(WayfarerxReleasesS3)
+}

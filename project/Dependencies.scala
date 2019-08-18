@@ -12,4 +12,12 @@ object Dependencies {
 
   lazy val ScalaMock = "org.scalamock" %% "scalamock" % "4.3.0"
 
+  lazy val WayfarerxReleases = "WayfarerX Releases" at "https://software.wayfarerx.net/releases"
+
+  lazy val WayfarerxSnapshots = "WayfarerX Snapshots" at "https://software.wayfarerx.net/snapshots"
+
+  lazy val WayfarerxReleasesS3 = "WayfarerX S3 Releases" at "s3://software.wayfarerx.net/releases"
+
+  lazy val WayfarerxSnapshotsS3 = "WayfarerX S3 Snapshots" at "s3://software.wayfarerx.net/snapshots"
+
 }
