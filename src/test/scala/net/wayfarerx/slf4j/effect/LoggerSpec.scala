@@ -37,6 +37,9 @@ final class LoggerSpec extends FlatSpec with Matchers with MockFactory {
         _ <- Logger(mock[Slf4jLogger]) flatMap (l => Task(l should not be null))
         _ <- Logger("my-logger") flatMap (l => Task(l should not be null))
         _ <- Logger(classOf[LoggerSpec]) flatMap (l => Task(l should not be null))
+        _ <- Logger.connect(mock[Slf4jLogger]) flatMap (l => Task(l should not be null))
+        _ <- Logger.connect("my-logger") flatMap (l => Task(l should not be null))
+        _ <- Logger.connect(classOf[LoggerSpec]) flatMap (l => Task(l should not be null))
       } yield ()
     }
   }

@@ -52,7 +52,18 @@ object Logger {
     blocking: Blocking.Service[Any] = Blocking.Live.blocking,
     console: Console.Service[Any] = Console.Live.console
   ): Task[Logger with Blocking with Console] =
-    implicitly[Factory[I]].apply(input, blocking) map (Live(_, blocking, console))
+    connect(input, blocking) map (Live(_, blocking, console))
+
+  /**
+   * Attempts to connect to a new SLF4J `Logger` implementation.
+   *
+   * @tparam I The type of input that describes the underlying SLF4J `Logger`.
+   * @param input    The input that describes the underlying SLF4J `Logger`.
+   * @param blocking The underlying blocking service.
+   * @return An effect that connects to a new SLF4J `Logger` implementation.
+   */
+  def connect[I: Factory](input: I, blocking: Blocking.Service[Any] = Blocking.Live.blocking): Task[slf4j.Logger] =
+    implicitly[Factory[I]].create(input, blocking)
 
   /**
    * Implementation of the `Logger` mix-in using a SLF4J `Logger`.
@@ -185,7 +196,7 @@ object Logger {
      * @param blocking The blocking service to use.
      * @return An effect that attempts to create a SLF4J `Logger`.
      */
-    def apply(input: I, blocking: Blocking.Service[Any]): Task[slf4j.Logger]
+    def create(input: I, blocking: Blocking.Service[Any]): Task[slf4j.Logger]
 
   }
 
