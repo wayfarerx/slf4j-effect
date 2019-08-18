@@ -18,7 +18,6 @@ package net.wayfarerx.slf4j.effect
 import java.io.{PrintWriter, StringWriter}
 
 import org.slf4j
-
 import zio.{Cause, Task, UIO}
 import zio.blocking.Blocking
 import zio.console.Console
@@ -45,14 +44,16 @@ object Logger {
    * @param input    The input that describes the underlying SLF4J `Logger`.
    * @param blocking The underlying blocking service.
    * @param console  The underlying console service.
+   * @param slf4jLoggerFactory The SLF4J `LoggerFactory` to use.
    * @return An effect that creates a new `Logger` implementation.
    */
   def apply[I: Factory](
     input: I,
     blocking: Blocking.Service[Any] = Blocking.Live.blocking,
-    console: Console.Service[Any] = Console.Live.console
+    console: Console.Service[Any] = Console.Live.console,
+    slf4jLoggerFactory: slf4j.ILoggerFactory = slf4j.LoggerFactory.getILoggerFactory
   ): Task[Logger with Blocking with Console] =
-    connect(input, blocking) map (Live(_, blocking, console))
+    connect(input, blocking, slf4jLoggerFactory) map (Live(_, blocking, console))
 
   /**
    * Attempts to connect to a new SLF4J `Logger` implementation.
@@ -60,10 +61,15 @@ object Logger {
    * @tparam I The type of input that describes the underlying SLF4J `Logger`.
    * @param input    The input that describes the underlying SLF4J `Logger`.
    * @param blocking The underlying blocking service.
+   * @param slf4jLoggerFactory The SLF4J `LoggerFactory` to use.
    * @return An effect that connects to a new SLF4J `Logger` implementation.
    */
-  def connect[I: Factory](input: I, blocking: Blocking.Service[Any] = Blocking.Live.blocking): Task[slf4j.Logger] =
-    implicitly[Factory[I]].create(input, blocking)
+  def connect[I: Factory](
+    input: I,
+    blocking: Blocking.Service[Any] = Blocking.Live.blocking,
+    slf4jLoggerFactory: slf4j.ILoggerFactory = slf4j.LoggerFactory.getILoggerFactory
+  ): Task[slf4j.Logger] =
+    implicitly[Factory[I]].create(input, blocking, slf4jLoggerFactory)
 
   /**
    * Implementation of the `Logger` mix-in using a SLF4J `Logger`.
@@ -194,9 +200,10 @@ object Logger {
      *
      * @param input    The input to create from.
      * @param blocking The blocking service to use.
+     * @param slf4jLoggerFactory The SLF4J `LoggerFactory` to use.
      * @return An effect that attempts to create a SLF4J `Logger`.
      */
-    def create(input: I, blocking: Blocking.Service[Any]): Task[slf4j.Logger]
+    def create(input: I, blocking: Blocking.Service[Any], slf4jLoggerFactory: slf4j.ILoggerFactory): Task[slf4j.Logger]
 
   }
 
@@ -207,15 +214,17 @@ object Logger {
 
     /** Use the specified SLF4J `Logger`. */
     implicit val fromSlf4jLogger: Factory[slf4j.Logger] =
-      (logger, _) => UIO(logger)
+      (logger, _, _) => UIO(logger)
 
     /** Create a SLF4J `Logger` with the specified name. */
     implicit val fromSlf4jLoggerName: Factory[String] =
-      (loggerName, blocking) => blocking.effectBlocking(slf4j.LoggerFactory.getLogger(loggerName))
+      (loggerName, blocking, slf4jLoggerFactory) =>
+        blocking.effectBlocking(slf4jLoggerFactory.getLogger(loggerName))
 
     /** Create a SLF4J `Logger` from the specified class. */
     implicit def fromSlf4jLoggerClass[T]: Factory[Class[T]] =
-      (loggerClass, blocking) => blocking.effectBlocking(slf4j.LoggerFactory.getLogger(loggerClass))
+      (loggerClass, blocking, slf4jLoggerFactory) =>
+        blocking.effectBlocking(slf4jLoggerFactory.getLogger(loggerClass.getName))
 
   }
 
