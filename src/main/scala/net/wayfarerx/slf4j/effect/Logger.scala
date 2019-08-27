@@ -17,7 +17,7 @@ package net.wayfarerx.slf4j.effect
 
 import org.slf4j
 
-import zio.{Task, UIO}
+import zio.{Task, UIO, URIO, ZIO}
 import zio.blocking.Blocking
 import zio.console.Console
 
@@ -34,7 +34,22 @@ trait Logger {
 /**
  * Definitions that support the `Logger` mix-in.
  */
-object Logger {
+object Logger extends LoggerApi[Logger] {
+
+  /* This API's effects are bound to a `Logger`. */
+  override type Effect[+A] = URIO[Logger, A]
+
+  /* Return true if the specified logging level is enabled. */
+  override def isEnabled(level: Level): Effect[Boolean] =
+    ZIO.accessM[Logger](_.logger.isEnabled(level))
+
+  /* Log a message at the specified level. */
+  override def log(level: Level, f: => String): Effect[Unit] =
+    ZIO.accessM[Logger](_.logger.log(level, f))
+
+  /* Log a message and `Throwable` at the specified level. */
+  override def log(level: Level, f: => String, t: Throwable): Effect[Unit] =
+    ZIO.accessM[Logger](_.logger.log(level, f, t))
 
   /**
    * Attempts to create a new `Logger` implementation.

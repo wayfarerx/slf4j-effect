@@ -38,9 +38,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (mockLogger.trace(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
     runtime.unsafeRun {
       for {
-        _ <- api.isTraceEnabled flatMap (e => Task(e shouldBe true))
-        _ <- api.trace("message1")
-        _ <- api.trace("message2", thrown)
+        _ <- Logger.isTraceEnabled flatMap (e => Task(e shouldBe true))
+        _ <- Logger.trace("message1")
+        _ <- Logger.trace("message2", thrown)
       } yield ()
     }
   }
@@ -49,9 +49,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (() => mockLogger.isTraceEnabled).expects().returning(false).anyNumberOfTimes()
     runtime.unsafeRun {
       for {
-        _ <- api.isTraceEnabled flatMap (e => Task(e shouldBe false))
-        _ <- api.trace("message1")
-        _ <- api.trace("message2", thrown)
+        _ <- Logger.isTraceEnabled flatMap (e => Task(e shouldBe false))
+        _ <- Logger.trace("message1")
+        _ <- Logger.trace("message2", thrown)
       } yield ()
     }
   }
@@ -62,9 +62,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (mockLogger.debug(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
     runtime.unsafeRun {
       for {
-        _ <- api.isDebugEnabled flatMap (e => Task(e shouldBe true))
-        _ <- api.debug("message1")
-        _ <- api.debug("message2", thrown)
+        _ <- Logger.isDebugEnabled flatMap (e => Task(e shouldBe true))
+        _ <- Logger.debug("message1")
+        _ <- Logger.debug("message2", thrown)
       } yield ()
     }
   }
@@ -73,9 +73,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (() => mockLogger.isDebugEnabled).expects().returning(false).anyNumberOfTimes()
     runtime.unsafeRun {
       for {
-        _ <- api.isDebugEnabled flatMap (e => Task(e shouldBe false))
-        _ <- api.debug("message1")
-        _ <- api.debug("message2", thrown)
+        _ <- Logger.isDebugEnabled flatMap (e => Task(e shouldBe false))
+        _ <- Logger.debug("message1")
+        _ <- Logger.debug("message2", thrown)
       } yield ()
     }
   }
@@ -86,9 +86,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (mockLogger.info(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
     runtime.unsafeRun {
       for {
-        _ <- api.isInfoEnabled flatMap (e => Task(e shouldBe true))
-        _ <- api.info("message1")
-        _ <- api.info("message2", thrown)
+        _ <- Logger.isInfoEnabled flatMap (e => Task(e shouldBe true))
+        _ <- Logger.info("message1")
+        _ <- Logger.info("message2", thrown)
       } yield ()
     }
   }
@@ -97,9 +97,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (() => mockLogger.isInfoEnabled).expects().returning(false).anyNumberOfTimes()
     runtime.unsafeRun {
       for {
-        _ <- api.isInfoEnabled flatMap (e => Task(e shouldBe false))
-        _ <- api.info("message1")
-        _ <- api.info("message2", thrown)
+        _ <- Logger.isInfoEnabled flatMap (e => Task(e shouldBe false))
+        _ <- Logger.info("message1")
+        _ <- Logger.info("message2", thrown)
       } yield ()
     }
   }
@@ -110,9 +110,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (mockLogger.warn(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
     runtime.unsafeRun {
       for {
-        _ <- api.isWarnEnabled flatMap (e => Task(e shouldBe true))
-        _ <- api.warn("message1")
-        _ <- api.warn("message2", thrown)
+        _ <- Logger.isWarnEnabled flatMap (e => Task(e shouldBe true))
+        _ <- Logger.warn("message1")
+        _ <- Logger.warn("message2", thrown)
       } yield ()
     }
   }
@@ -121,9 +121,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (() => mockLogger.isWarnEnabled).expects().returning(false).anyNumberOfTimes()
     runtime.unsafeRun {
       for {
-        _ <- api.isWarnEnabled flatMap (e => Task(e shouldBe false))
-        _ <- api.warn("message1")
-        _ <- api.warn("message2", thrown)
+        _ <- Logger.isWarnEnabled flatMap (e => Task(e shouldBe false))
+        _ <- Logger.warn("message1")
+        _ <- Logger.warn("message2", thrown)
       } yield ()
     }
   }
@@ -134,9 +134,9 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (mockLogger.error(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
     runtime.unsafeRun {
       for {
-        _ <- api.isErrorEnabled flatMap (e => Task(e shouldBe true))
-        _ <- api.error("message1")
-        _ <- api.error("message2", thrown)
+        _ <- Logger.isErrorEnabled flatMap (e => Task(e shouldBe true))
+        _ <- Logger.error("message1")
+        _ <- Logger.error("message2", thrown)
       } yield ()
     }
   }
@@ -145,17 +145,11 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
     (() => mockLogger.isErrorEnabled).expects().returning(false).anyNumberOfTimes()
     runtime.unsafeRun {
       for {
-        _ <- api.isErrorEnabled flatMap (e => Task(e shouldBe false))
-        _ <- api.error("message1")
-        _ <- api.error("message2", thrown)
+        _ <- Logger.isErrorEnabled flatMap (e => Task(e shouldBe false))
+        _ <- Logger.error("message1")
+        _ <- Logger.error("message2", thrown)
       } yield ()
     }
-  }
-
-  it should "mirror the companion types" in {
-    api.Level shouldBe Level
-    api.Logger shouldBe Logger
-    api.LoggerApi shouldBe LoggerApi
   }
 
 }
