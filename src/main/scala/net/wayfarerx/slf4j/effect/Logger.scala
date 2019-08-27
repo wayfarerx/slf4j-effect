@@ -15,10 +15,9 @@
 
 package net.wayfarerx.slf4j.effect
 
-import java.io.{PrintWriter, StringWriter}
-
 import org.slf4j
-import zio.{Cause, Task, UIO}
+
+import zio.{Task, UIO}
 import zio.blocking.Blocking
 import zio.console.Console
 
@@ -113,32 +112,7 @@ object Logger {
        * @param thrown  The throwable for the log entry.
        * @return An effect that submits a log entry to SLF4J.
        */
-      private def submit(level: Level, message: String, thrown: Option[Throwable]): UIO[Unit] = {
-
-        /* Generate a multi-line string that describes the logging failure. */
-        def reportLogFailure(cause: Cause[Throwable]): String = {
-          val result = new StringWriter()
-          val out = new PrintWriter(result)
-
-          /* Print the specified lines with the level prefix and indent. */
-          def printLines(string: String): Unit =
-            string.linesIterator filterNot (_.trim.isEmpty) foreach (l =>out.println(s"$level   $l"))
-
-          out.println(s"$level Unable to submit log entry:")
-          printLines(message)
-          thrown foreach { t =>
-            val sw = new StringWriter()
-            val pw = new PrintWriter(sw)
-            t.printStackTrace(pw)
-            pw.flush()
-            printLines(sw.toString)
-          }
-          out.println(s"$level Log entry submission prevented by:")
-          printLines(cause.prettyPrint)
-          out.flush()
-          result.toString
-        }
-
+      private def submit(level: Level, message: String, thrown: Option[Throwable]): UIO[Unit] =
         blocking.effectBlocking {
           level match {
             case Level.Error => thrown.fold(slf4jLogger.error(message))(slf4jLogger.error(message, _))
@@ -147,9 +121,13 @@ object Logger {
             case Level.Debug => thrown.fold(slf4jLogger.debug(message))(slf4jLogger.debug(message, _))
             case Level.Trace => thrown.fold(slf4jLogger.trace(message))(slf4jLogger.trace(message, _))
           }
-        }.foldCauseM(c => console.putStr(reportLogFailure(c)), UIO(_))
-      }
-
+        }.foldCauseM(cause => Recover(level.toString())(
+          "Unable to submit log entry:",
+          4 -> message,
+          4 -> thrown,
+          2 -> "Log entry submission prevented by:",
+          4 -> cause
+        ).provide(self), UIO(_))
     }
 
   }
