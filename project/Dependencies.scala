@@ -10,7 +10,7 @@ object Dependencies {
 
   lazy val ScalaTest = "org.scalatest" %% "scalatest" % "3.0.8"
 
-  lazy val ScalaMock = "org.scalamock" %% "scalamock" % "4.3.0"
+  lazy val ScalaMock = "org.scalamock" %% "scalamock" % "4.4.0"
 
   lazy val WayfarerxReleases = "WayfarerX Releases" at "https://software.wayfarerx.net/releases"
 
