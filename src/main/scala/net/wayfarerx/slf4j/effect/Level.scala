@@ -37,7 +37,7 @@ object Level extends (slf4j.Level => Level) {
 
   /** All of the supported logging levels. */
   lazy val Levels: Set[Level] =
-    Set(Error, Warn, Info, Debug, Trace)
+    Set(Trace, Debug, Info, Warn, Error)
 
   /** Logging levels indexed by SLF4J `Level`. */
   private lazy val levelsBySlf4jLevel: Map[slf4j.Level, Level] =
@@ -78,19 +78,19 @@ object Level extends (slf4j.Level => Level) {
   def apply(slf4jLevelStr: String): Option[Level] =
     levelsBySlf4jLevelStr get slf4jLevelStr.toUpperCase
 
-  /** The `ERROR` logging level. */
-  case object Error extends Level(slf4j.Level.ERROR)
-
-  /** The `WARN` logging level. */
-  case object Warn extends Level(slf4j.Level.WARN)
-
-  /** The `INFO` logging level. */
-  case object Info extends Level(slf4j.Level.INFO)
+  /** The `TRACE` logging level. */
+  case object Trace extends Level(slf4j.Level.TRACE)
 
   /** The `DEBUG` logging level. */
   case object Debug extends Level(slf4j.Level.DEBUG)
 
-  /** The `TRACE` logging level. */
-  case object Trace extends Level(slf4j.Level.TRACE)
+  /** The `INFO` logging level. */
+  case object Info extends Level(slf4j.Level.INFO)
+
+  /** The `WARN` logging level. */
+  case object Warn extends Level(slf4j.Level.WARN)
+
+  /** The `ERROR` logging level. */
+  case object Error extends Level(slf4j.Level.ERROR)
 
 }
