@@ -121,6 +121,7 @@ trait LoggerApi[-R] {
    * Attempts to submit a log event at the specified level using the supplied logging event data.
    *
    * @param level         The level to log the message at.
+   * @param markers       The markers to use for the logging event.
    * @param keyValuePairs The key/value pairs to use for the logging event.
    * @param message       The message to log.
    * @param cause         The optional cause of the resulting logging event.
@@ -128,6 +129,7 @@ trait LoggerApi[-R] {
    */
   def submit(
     level: Level,
+    markers: Set[Marker],
     keyValuePairs: Map[String, AnyRef],
     message: => String,
     cause: Option[Throwable]
@@ -161,11 +163,13 @@ object LoggerApi {
    * @tparam R The environment type to require in results.
    * @param loggerApi     The `LoggerApi` to use.
    * @param level         The level this builder will log at.
+   * @param markers       The markers to use for the logging event.
    * @param keyValuePairs The key/value pairs to use for the logging event.
    */
   case class EventBuilder[-R](
     loggerApi: LoggerApi[R],
     level: Level,
+    markers: Set[Marker] = Set(),
     keyValuePairs: Map[String, AnyRef] = Map.empty
   ) {
 
@@ -187,7 +191,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message.
      */
     def apply(message: => String): URIO[R, Unit] =
-      loggerApi.submit(level, keyValuePairs, message, None)
+      loggerApi.submit(level, markers, keyValuePairs, message, None)
 
     /**
      * Submits this event builder with the specified message and cause.
@@ -198,7 +202,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message and cause.
      */
     def apply[C: CauseSupport](message: => String, cause: C): URIO[R, Unit] =
-      loggerApi.submit(level, keyValuePairs, message, Some(CauseSupport(cause)))
+      loggerApi.submit(level, markers, keyValuePairs, message, Some(CauseSupport(cause)))
 
     /**
      * Submits this event builder with the specified message and optional cause.
@@ -209,7 +213,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message and optional cause.
      */
     def apply[C: CauseSupport](message: => String, cause: Option[C]): URIO[R, Unit] =
-      loggerApi.submit(level, keyValuePairs, message, cause map (CauseSupport(_)))
+      loggerApi.submit(level, markers, keyValuePairs, message, cause map (CauseSupport(_)))
 
   }
 
@@ -239,7 +243,14 @@ object LoggerApi {
      */
     object EventComponent {
 
-      /** The singleton key/value pair event component implementation. */
+      /** The marker event component implementation. */
+      implicit def markerAsEventComponent(marker: Marker): EventComponent =
+        new EventComponent {
+          override def apply[R](builder: EventBuilder[R]) =
+            builder.copy(markers = builder.markers + marker)
+        }
+
+      /** The key/value pair event component implementation. */
       implicit def keyValuePairAsEventComponent[T: ValueSupport](component: (String, T)): EventComponent =
         new EventComponent {
           override def apply[R](builder: EventBuilder[R]) =

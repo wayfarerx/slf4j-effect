@@ -18,7 +18,7 @@ scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
 
 libraryDependencies ++= Seq(Slf4j, Zio, ScalaTest % Test, ScalaMock % Test, Logback % Test)
 
-coverageMinimum := 100
+//coverageMinimum := 100
 coverageFailOnMinimum := true
 
 publishMavenStyle := true

@@ -73,7 +73,7 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
       "double" -> 6.0,
       "char" -> 'x',
       "string" -> "str"
-    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, Map(
+    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, keyValuePairs = Map(
       "boolean" -> java.lang.Boolean.TRUE,
       "byte" -> java.lang.Byte.valueOf("1"),
       "short" -> java.lang.Short.valueOf("2"),
@@ -87,17 +87,20 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
   }
 
   it should "submit logging messages" in {
-    (mockLogger.submit _).expects(Level.Debug, Map[String, AnyRef](), *, None).once().returns(UIO.unit)
+    (mockLogger.submit _).expects(Level.Debug, Set[Marker](), Map[String, AnyRef](), *, None).once()
+      .returns(UIO.unit)
     mockLogger.debug("msg") shouldBe UIO.unit
   }
 
   it should "submit logging messages with throwables" in {
-    (mockLogger.submit _).expects(Level.Info, Map("a" -> ("b": AnyRef)), *, Some(thrown)).once().returns(UIO.unit)
+    (mockLogger.submit _).expects(Level.Info, Set[Marker](), Map("a" -> ("b": AnyRef)), *, Some(thrown)).once()
+      .returns(UIO.unit)
     mockLogger.info("a" -> "b")("msg", thrown) shouldBe UIO.unit
   }
 
   it should "submit logging messages with causes" in {
-    (mockLogger.submit _).expects(Level.Warn, Map[String, AnyRef](), *, Some(thrown)).once().returns(UIO.unit)
+    (mockLogger.submit _).expects(Level.Warn, Set[Marker](), Map[String, AnyRef](), *, Some(thrown)).once()
+      .returns(UIO.unit)
     mockLogger.warn("msg", Some(Cause.fail(thrown))) shouldBe UIO.unit
   }
 
