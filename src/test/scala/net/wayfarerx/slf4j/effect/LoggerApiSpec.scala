@@ -32,7 +32,7 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
 
   private val thrown = new RuntimeException
 
-  "LoggerAPI" should "support logging at the TRACE level" in {
+  "LoggerApi" should "support logging at the TRACE level" in {
     (() => mockLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
     (mockLogger.trace(_: String)).expects("message1").returning(()).once()
     (mockLogger.trace(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
@@ -148,6 +148,19 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
         _ <- Logger.isErrorEnabled flatMap (e => Task(e shouldBe false))
         _ <- Logger.error("message1")
         _ <- Logger.error("message2", thrown)
+      } yield ()
+    }
+  }
+
+  it should "support generic exception logging" in {
+    (() => mockLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
+    (mockLogger.trace(_: String)).expects("message1").returning(()).once()
+    (mockLogger.trace(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
+    runtime.unsafeRun {
+      for {
+        _ <- Logger.isEnabled(Level.Trace) flatMap (e => Task(e shouldBe true))
+        _ <- Logger.log(Level.Trace, "message1")
+        _ <- Logger.log(Level.Trace, "message2", thrown)
       } yield ()
     }
   }

@@ -31,20 +31,7 @@ final class LoggerSpec extends FlatSpec with Matchers with MockFactory {
 
   private val runtime = new DefaultRuntime {}
 
-  "Logger" should "support common factory patterns" in {
-    runtime.unsafeRun {
-      for {
-        _ <- Logger(mock[Slf4jLogger]) flatMap (l => Task(l should not be null))
-        _ <- Logger("my-logger") flatMap (l => Task(l should not be null))
-        _ <- Logger(classOf[LoggerSpec]) flatMap (l => Task(l should not be null))
-        _ <- Logger.connect(mock[Slf4jLogger]) flatMap (l => Task(l should not be null))
-        _ <- Logger.connect("my-logger") flatMap (l => Task(l should not be null))
-        _ <- Logger.connect(classOf[LoggerSpec]) flatMap (l => Task(l should not be null))
-      } yield ()
-    }
-  }
-
-  it should "recover from logging failures" in {
+  "Logger" should "recover from logging failures" in {
     val thrown = new RuntimeException
     val mockLogger = mock[Slf4jLogger]
     (() => mockLogger.isErrorEnabled).expects().returning(true).twice()
