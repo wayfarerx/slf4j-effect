@@ -15,41 +15,145 @@
 
 package net.wayfarerx.slf4j.effect
 
-import org.scalamock.scalatest.MockFactory
+import java.util.function.Supplier
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.slf4j.{Marker => Slf4jMarker, Logger => Slf4jLogger, spi => slf4j}
 
-import org.slf4j.{Logger => Slf4jLogger}
-
-import zio.{DefaultRuntime, Task, UIO}
+import zio.{DefaultRuntime, UIO}
+import zio.blocking.Blocking
 import zio.console.Console
+
+import org.scalamock.scalatest.MockFactory
+import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+
 
 /**
  * Test suite for loggers.
  */
-final class LoggerSpec extends FlatSpec with Matchers with MockFactory {
+final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
+
+  private val mockSlf4jLogger = mock[Slf4jLogger]
+
+  private val mockSlf4jLoggingEventBuilder = mock[slf4j.LoggingEventBuilder]
+
+  private val mockConsole = mock[Console.Service[Any]]
 
   private val runtime = new DefaultRuntime {}
 
-  "Logger" should "recover from logging failures" in {
-    val thrown = new RuntimeException
-    val mockLogger = mock[Slf4jLogger]
-    (() => mockLogger.isErrorEnabled).expects().returning(true).twice()
-    (mockLogger.error(_: String)).expects("message1").throws(new RuntimeException).once()
-    (mockLogger.error(_: String, _: Throwable)).expects("message2", thrown).throws(new RuntimeException).once()
-    val mockConsole = mock[Console.Service[Any]]
-    (mockConsole.putStr _).expects(where[String](_.startsWith(s"${Level.Error} "))).returning(UIO.unit).twice()
-    val logger = Logger.Live(mockLogger, console = mockConsole).logger
-    runtime.unsafeRun {
-      for {
-        _ <- logger.error("message1")
-        _ <- logger.error("message2", thrown)
-      } yield ()
-    }
+  private val thrown = new RuntimeException
+
+  "Logger" should "log trace messages" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atTrace()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
+    runtime.unsafeRun(Logger.isTraceEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(Logger.trace("msg").provide(logger)).shouldBe(())
   }
 
-  it should "use the default console by default" in {
-    Logger.Live(mock[Slf4jLogger]) should not be null
+  it should "log debug messages" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isDebugEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atDebug()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.setCause _).expects(thrown).returns(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
+    runtime.unsafeRun(Logger.isDebugEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(Logger.debug("msg", thrown).provide(logger)).shouldBe(())
+  }
+
+  it should "log info messages" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isInfoEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atInfo()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
+    runtime.unsafeRun(Logger.isInfoEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(Logger.info("msg").provide(logger)).shouldBe(())
+  }
+
+  it should "log warn messages" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isWarnEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atWarn()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
+    runtime.unsafeRun(Logger.isWarnEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(Logger.warn("msg").provide(logger)).shouldBe(())
+  }
+
+  it should "log error messages" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atError()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
+    runtime.unsafeRun(Logger.isErrorEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(Logger.error("msg").provide(logger)).shouldBe(())
+  }
+
+  it should "filter out disabled levels" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(false).anyNumberOfTimes()
+    runtime.unsafeRun(Logger.isErrorEnabled.provide(logger)) shouldBe false
+    runtime.unsafeRun(Logger.error("msg").provide(logger)).shouldBe(())
+  }
+
+  it should "propagate key/value pairs" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    val mockLoggingEventBuilder = new MockKeyValueLoggingEventBuilder
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
+    runtime.unsafeRun(Logger.error("key" -> "value")("msg").provide(logger)).shouldBe(())
+    mockLoggingEventBuilder.keyValue shouldBe Some("key" -> "value")
+    mockLoggingEventBuilder.logged shouldBe Some("msg")
+  }
+
+  it should "recover from logging failures" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger, console = mockConsole).logger)
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atError()).expects().returning(mockSlf4jLoggingEventBuilder).once()
+    (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").throws(thrown).once()
+    (mockConsole.putStr _).expects(where[String](_.startsWith(s"${Level.Error} "))).returning(UIO.unit).once()
+    runtime.unsafeRun(Logger.error("msg").provide(logger)).shouldBe(())
+  }
+
+  it should "construct live instances from logger names" in {
+    runtime.unsafeRun(Logger.Live("test")) should not be null
+    runtime.unsafeRun(Logger.Live("test", Blocking.Live.blocking)) should not be null
+    runtime.unsafeRun(Logger.Live("test", console = Console.Live.console)) should not be null
+    runtime.unsafeRun(Logger.Live("test", Blocking.Live.blocking, Console.Live.console)) should not be null
+  }
+
+  /**
+   * A mock to test setting key/value pairs on SLF4J logging event builders.
+   */
+  private final class MockKeyValueLoggingEventBuilder extends slf4j.LoggingEventBuilder {
+
+    var keyValue: Option[(String, AnyRef)] = None
+
+    var logged: Option[String] = None
+
+    override def setCause(cause: Throwable) = throw thrown
+
+    override def addMarker(marker: Slf4jMarker) = throw thrown
+
+    override def addArgument(p: AnyRef) = throw thrown
+
+    override def addArgument(objectSupplier: Supplier[AnyRef]) = throw thrown
+
+    override def addKeyValue(key: String, value: AnyRef) = {
+      keyValue = Some(key -> value)
+      this
+    }
+
+    override def addKeyValue(key: String, value: Supplier[AnyRef]) = throw thrown
+
+    override def log(message: String): Unit = logged = Some(message)
+
+    override def log(message: String, arg: AnyRef): Unit = throw thrown
+
+    override def log(message: String, arg0: AnyRef, arg1: AnyRef): Unit = throw thrown
+
+    override def log(message: String, args: AnyRef*): Unit = throw thrown
+
+    override def log(messageSupplier: Supplier[String]): Unit = throw thrown
   }
 
 }
