@@ -198,7 +198,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message and cause.
      */
     def apply[C: CauseSupport](message: => String, cause: C): URIO[R, Unit] =
-      loggerApi.submit(level, keyValuePairs, message, Some(CauseSupport[C](cause)))
+      loggerApi.submit(level, keyValuePairs, message, Some(CauseSupport(cause)))
 
     /**
      * Submits this event builder with the specified message and optional cause.
@@ -209,7 +209,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message and optional cause.
      */
     def apply[C: CauseSupport](message: => String, cause: Option[C]): URIO[R, Unit] =
-      loggerApi.submit(level, keyValuePairs, message, cause map (CauseSupport[C](_)))
+      loggerApi.submit(level, keyValuePairs, message, cause map (CauseSupport(_)))
 
   }
 
