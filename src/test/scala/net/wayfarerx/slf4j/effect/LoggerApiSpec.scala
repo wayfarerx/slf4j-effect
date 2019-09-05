@@ -15,154 +15,90 @@
 
 package net.wayfarerx.slf4j.effect
 
+import zio.{Cause, DefaultRuntime, UIO}
+
 import org.scalamock.scalatest.MockFactory
+
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
-import org.slf4j
-import zio.console.Console
-import zio.{DefaultRuntime, Task}
 
 /**
  * Test suite for the logger API operations.
  */
 final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
-  private val mockLogger = mock[slf4j.Logger]
+  private val mockLogger = mock[LoggerApi.Service[Any]]
 
-  private val runtime = new DefaultRuntime {} map (_ => Logger.Live(mockLogger, console = mock[Console.Service[Any]]))
+  private val runtime = new DefaultRuntime {}
 
   private val thrown = new RuntimeException
 
-  "LoggerApi" should "support logging at the TRACE level" in {
-    (() => mockLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.trace(_: String)).expects("message1").returning(()).once()
-    (mockLogger.trace(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isTraceEnabled flatMap (e => Task(e shouldBe true))
-        _ <- Logger.trace("message1")
-        _ <- Logger.trace("message2", thrown)
-      } yield ()
-    }
+  "LoggerApi" should "filter and log TRACE events" in {
+    (mockLogger.isEnabled _).expects(Level.Trace).once().returns(UIO(true))
+    runtime.unsafeRun(mockLogger.isTraceEnabled) shouldBe true
+    mockLogger.trace shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace)
   }
 
-  it should "support NOT logging at the TRACE level" in {
-    (() => mockLogger.isTraceEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isTraceEnabled flatMap (e => Task(e shouldBe false))
-        _ <- Logger.trace("message1")
-        _ <- Logger.trace("message2", thrown)
-      } yield ()
-    }
+  it should "filter and log DEBUG events" in {
+    (mockLogger.isEnabled _).expects(Level.Debug).once().returns(UIO(true))
+    runtime.unsafeRun(mockLogger.isDebugEnabled) shouldBe true
+    mockLogger.debug shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Debug)
   }
 
-  it should "support logging at the DEBUG level" in {
-    (() => mockLogger.isDebugEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.debug(_: String)).expects("message1").returning(()).once()
-    (mockLogger.debug(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isDebugEnabled flatMap (e => Task(e shouldBe true))
-        _ <- Logger.debug("message1")
-        _ <- Logger.debug("message2", thrown)
-      } yield ()
-    }
+  it should "filter and log INFO events" in {
+    (mockLogger.isEnabled _).expects(Level.Info).once().returns(UIO(true))
+    runtime.unsafeRun(mockLogger.isInfoEnabled) shouldBe true
+    mockLogger.info shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Info)
   }
 
-  it should "support NOT logging at the DEBUG level" in {
-    (() => mockLogger.isDebugEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isDebugEnabled flatMap (e => Task(e shouldBe false))
-        _ <- Logger.debug("message1")
-        _ <- Logger.debug("message2", thrown)
-      } yield ()
-    }
+  it should "filter and log WARN events" in {
+    (mockLogger.isEnabled _).expects(Level.Warn).once().returns(UIO(true))
+    runtime.unsafeRun(mockLogger.isWarnEnabled) shouldBe true
+    mockLogger.warn shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Warn)
   }
 
-  it should "support logging at the INFO level" in {
-    (() => mockLogger.isInfoEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.info(_: String)).expects("message1").returning(()).once()
-    (mockLogger.info(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isInfoEnabled flatMap (e => Task(e shouldBe true))
-        _ <- Logger.info("message1")
-        _ <- Logger.info("message2", thrown)
-      } yield ()
-    }
+  it should "filter and log ERROR events" in {
+    (mockLogger.isEnabled _).expects(Level.Error).once().returns(UIO(true))
+    runtime.unsafeRun(mockLogger.isErrorEnabled) shouldBe true
+    mockLogger.error shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Error)
   }
 
-  it should "support NOT logging at the INFO level" in {
-    (() => mockLogger.isInfoEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isInfoEnabled flatMap (e => Task(e shouldBe false))
-        _ <- Logger.info("message1")
-        _ <- Logger.info("message2", thrown)
-      } yield ()
-    }
+  "LoggerApi.EventBuilder" should "support event components" in {
+    mockLogger.trace(
+      "boolean" -> true,
+      "byte" -> 1.toByte,
+      "short" -> 2.toShort,
+      "int" -> 3,
+      "long" -> 4L,
+      "float" -> 5f,
+      "double" -> 6.0,
+      "char" -> 'x',
+      "string" -> "str"
+    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, Map(
+      "boolean" -> java.lang.Boolean.TRUE,
+      "byte" -> java.lang.Byte.valueOf("1"),
+      "short" -> java.lang.Short.valueOf("2"),
+      "int" -> java.lang.Integer.valueOf("3"),
+      "long" -> java.lang.Long.valueOf("4"),
+      "float" -> java.lang.Float.valueOf("5"),
+      "double" -> java.lang.Double.valueOf("6"),
+      "char" -> java.lang.Character.valueOf('x'),
+      "string" -> "str"
+    ))
   }
 
-  it should "support logging at the WARN level" in {
-    (() => mockLogger.isWarnEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.warn(_: String)).expects("message1").returning(()).once()
-    (mockLogger.warn(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isWarnEnabled flatMap (e => Task(e shouldBe true))
-        _ <- Logger.warn("message1")
-        _ <- Logger.warn("message2", thrown)
-      } yield ()
-    }
+  it should "submit logging messages" in {
+    (mockLogger.submit _).expects(Level.Debug, Map[String, AnyRef](), *, None).once().returns(UIO.unit)
+    mockLogger.debug("msg") shouldBe UIO.unit
   }
 
-  it should "support NOT logging at the WARN level" in {
-    (() => mockLogger.isWarnEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isWarnEnabled flatMap (e => Task(e shouldBe false))
-        _ <- Logger.warn("message1")
-        _ <- Logger.warn("message2", thrown)
-      } yield ()
-    }
+  it should "submit logging messages with throwables" in {
+    (mockLogger.submit _).expects(Level.Info, Map("a" -> ("b": AnyRef)), *, Some(thrown)).once().returns(UIO.unit)
+    mockLogger.info("a" -> "b")("msg", thrown) shouldBe UIO.unit
   }
 
-  it should "support logging at the ERROR level" in {
-    (() => mockLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.error(_: String)).expects("message1").returning(()).once()
-    (mockLogger.error(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isErrorEnabled flatMap (e => Task(e shouldBe true))
-        _ <- Logger.error("message1")
-        _ <- Logger.error("message2", thrown)
-      } yield ()
-    }
-  }
-
-  it should "support NOT logging at the ERROR level" in {
-    (() => mockLogger.isErrorEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isErrorEnabled flatMap (e => Task(e shouldBe false))
-        _ <- Logger.error("message1")
-        _ <- Logger.error("message2", thrown)
-      } yield ()
-    }
-  }
-
-  it should "support generic exception logging" in {
-    (() => mockLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
-    (mockLogger.trace(_: String)).expects("message1").returning(()).once()
-    (mockLogger.trace(_: String, _: Throwable)).expects("message2", thrown).returning(()).once()
-    runtime.unsafeRun {
-      for {
-        _ <- Logger.isEnabled(Level.Trace) flatMap (e => Task(e shouldBe true))
-        _ <- Logger.log(Level.Trace, "message1")
-        _ <- Logger.log(Level.Trace, "message2", thrown)
-      } yield ()
-    }
+  it should "submit logging messages with causes" in {
+    (mockLogger.submit _).expects(Level.Warn, Map[String, AnyRef](), *, Some(thrown)).once().returns(UIO.unit)
+    mockLogger.warn("msg", Some(Cause.fail(thrown))) shouldBe UIO.unit
   }
 
 }

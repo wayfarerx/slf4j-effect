@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  lazy val Slf4j = "org.slf4j" % "slf4j-api" % "1.7.28"
+  lazy val Slf4j = "org.slf4j" % "slf4j-api" % "2.0.0-alpha0"
 
   lazy val Zio = "dev.zio" %% "zio" % "1.0.0-RC11-1"
 
