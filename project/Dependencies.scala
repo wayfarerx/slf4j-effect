@@ -4,9 +4,9 @@ object Dependencies {
 
   lazy val Slf4j = "org.slf4j" % "slf4j-api" % "2.0.0-alpha0"
 
-  lazy val Zio = "dev.zio" %% "zio" % "1.0.0-RC11-1"
+  lazy val Zio = "dev.zio" %% "zio" % "1.0.0-RC12-1"
 
-  lazy val Logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
+  lazy val Logback = "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4"
 
   lazy val ScalaTest = "org.scalatest" %% "scalatest" % "3.0.8"
 
