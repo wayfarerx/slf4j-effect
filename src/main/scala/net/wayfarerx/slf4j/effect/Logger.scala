@@ -56,11 +56,12 @@ object Logger extends (LoggerApi.Aux[Any] => Logger) with LoggerApi.Service[Logg
   /* Attempt to submit a log event at the specified level using the supplied logging event data. */
   override def submit(
     level: Level,
+    markers: Set[Marker],
     keyValuePairs: Map[String, AnyRef],
     message: => String,
     cause: Option[Throwable]
   ): Result[Unit] =
-    ZIO.accessM(_.logger.submit(level, keyValuePairs, message, cause))
+    ZIO.accessM(_.logger.submit(level, markers, keyValuePairs, message, cause))
 
   /**
    * Implementation of the `Logger` environment using a SLF4J `Logger`.
@@ -86,6 +87,7 @@ object Logger extends (LoggerApi.Aux[Any] => Logger) with LoggerApi.Service[Logg
       /* Attempt to submit a log event at the specified level using the supplied logging event data. */
       override def submit(
         level: Level,
+        markers: Set[Marker],
         keyValuePairs: Map[String, AnyRef],
         message: => String,
         cause: Option[Throwable]
@@ -101,16 +103,17 @@ object Logger extends (LoggerApi.Aux[Any] => Logger) with LoggerApi.Service[Logg
               case Level.Warn => slf4jLogger.atWarn()
               case Level.Error => slf4jLogger.atError()
             }
-            val withKeyValuePairs = keyValuePairs.foldLeft(atLevel)((b, e) => b.addKeyValue(e._1, e._2))
+            val withMarkers = markers.foldLeft(atLevel)((b, m) => b.addMarker(m.slf4jMarker))
+            val withKeyValuePairs = keyValuePairs.foldLeft(withMarkers)((b, e) => b.addKeyValue(e._1, e._2))
             cause map withKeyValuePairs.setCause getOrElse withKeyValuePairs
           }.flatMap { builder =>
             blocking.effectBlocking(builder.log(msg))
           }.foldCauseM(
             failure => Recover(level.toString())(
-              "Unable to submit log entry:",
+              "Unable to submit SLF4J log entry:",
               4 -> (keyValuePairs.map(e => s"${e._1}=${e._2}").toSeq :+ msg mkString " "),
               4 -> cause,
-              2 -> "Log entry submission prevented by:",
+              2 -> "SLF4J log entry submission prevented by:",
               4 -> failure
             ).provide(self),
             UIO(_)

@@ -17,15 +17,15 @@ package net.wayfarerx.slf4j.effect
 
 import java.util.function.Supplier
 
-import org.slf4j.{Marker => Slf4jMarker, Logger => Slf4jLogger, spi => slf4j}
+import org.slf4j.{Logger => Slf4jLogger, Marker => Slf4jMarker, spi => slf4j}
 
 import zio.{DefaultRuntime, UIO}
 import zio.blocking.Blocking
 import zio.console.Console
 
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
+import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 
 /**
  * Test suite for loggers.
@@ -35,6 +35,8 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
   private val mockSlf4jLogger = mock[Slf4jLogger]
 
   private val mockSlf4jLoggingEventBuilder = mock[slf4j.LoggingEventBuilder]
+
+  private val mockSlf4jMarker = mock[Slf4jMarker]
 
   private val mockConsole = mock[Console.Service[Any]]
 
@@ -95,9 +97,19 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
     runtime.unsafeRun(Logger.error("msg").provide(logger)).shouldBe(())
   }
 
+  it should "propagate markers" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    val mockLoggingEventBuilder = new MockLoggingEventBuilder
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
+    runtime.unsafeRun(Logger.error(new Marker(mockSlf4jMarker))("msg").provide(logger)).shouldBe(())
+    mockLoggingEventBuilder.marker shouldBe Some(mockSlf4jMarker)
+    mockLoggingEventBuilder.logged shouldBe Some("msg")
+  }
+
   it should "propagate key/value pairs" in {
     val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
-    val mockLoggingEventBuilder = new MockKeyValueLoggingEventBuilder
+    val mockLoggingEventBuilder = new MockLoggingEventBuilder
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
     runtime.unsafeRun(Logger.error("key" -> "value")("msg").provide(logger)).shouldBe(())
@@ -124,7 +136,9 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
   /**
    * A mock to test setting key/value pairs on SLF4J logging event builders.
    */
-  private final class MockKeyValueLoggingEventBuilder extends slf4j.LoggingEventBuilder {
+  private final class MockLoggingEventBuilder extends slf4j.LoggingEventBuilder {
+
+    var marker: Option[Slf4jMarker] = None
 
     var keyValue: Option[(String, AnyRef)] = None
 
@@ -132,7 +146,10 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
 
     override def setCause(cause: Throwable) = throw thrown
 
-    override def addMarker(marker: Slf4jMarker) = throw thrown
+    override def addMarker(m: Slf4jMarker) = {
+      marker = Some(m)
+      this
+    }
 
     override def addArgument(p: AnyRef) = throw thrown
 
