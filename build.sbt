@@ -16,7 +16,7 @@ scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
   case _ => Seq()
 })
 
-libraryDependencies ++= Seq(Slf4j, Zio, ScalaTest % Test, ScalaMock % Test, Logback % Test)
+libraryDependencies ++= Seq(Slf4j, Cats, Zio, ScalaTest % Test, ScalaMock % Test, Logback % Test)
 
 coverageMinimum := 100
 coverageFailOnMinimum := true

@@ -15,6 +15,8 @@
 
 package net.wayfarerx.slf4j.effect
 
+import java.util.{Collections => JavaCollections, HashMap => JavaHashMap}
+
 import org.slf4j
 
 import zio.{Task, UIO, ZIO}
@@ -107,7 +109,18 @@ object Logger extends (LoggerApi.Aux[Any] => Logger) with LoggerApi.Service[Logg
             val withKeyValuePairs = keyValuePairs.foldLeft(withMarkers)((b, e) => b.addKeyValue(e._1, e._2))
             cause map withKeyValuePairs.setCause getOrElse withKeyValuePairs
           }.flatMap { builder =>
-            blocking.effectBlocking(builder.log(msg))
+            MDC() flatMap { mdc =>
+              blocking effectBlocking {
+                val contextMap = if (mdc.nonEmpty) {
+                  val previous = Option(slf4j.MDC.getCopyOfContextMap) getOrElse JavaCollections.emptyMap()
+                  val next = new JavaHashMap[String, String](previous)
+                  mdc foreach { case (k, v) => next.put(k, v) }
+                  slf4j.MDC.setContextMap(next)
+                  Some(previous)
+                } else None
+                try builder.log(msg) finally contextMap foreach slf4j.MDC.setContextMap
+              }
+            }
           }.foldCauseM(
             failure => Recover(level.toString())(
               "Unable to submit SLF4J log entry:",
