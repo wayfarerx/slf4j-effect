@@ -17,7 +17,7 @@ package net.wayfarerx.slf4j.effect
 
 import java.util.function.Supplier
 
-import org.slf4j.{Logger => Slf4jLogger, Marker => Slf4jMarker, spi => slf4j}
+import org.slf4j.{Logger => Slf4jLogger, Marker => Slf4jMarker, MDC => Slf4jMDC, spi => slf4j}
 
 import zio.{DefaultRuntime, UIO}
 import zio.blocking.Blocking
@@ -117,6 +117,16 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
     mockLoggingEventBuilder.logged shouldBe Some("msg")
   }
 
+  it should "propagate mapped diagnostic contexts" in {
+    val logger = Logger(Logger.Live(mockSlf4jLogger).logger)
+    val mockLoggingEventBuilder = new MockLoggingEventBuilder
+    (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
+    (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
+    runtime.unsafeRun(MDC("key" -> "value")(Logger.error("msg")).provide(logger)).shouldBe(())
+    mockLoggingEventBuilder.mdc shouldBe Some(Map("key" -> "value"))
+    mockLoggingEventBuilder.logged shouldBe Some("msg")
+  }
+
   it should "recover from logging failures" in {
     val logger = Logger(Logger.Live(mockSlf4jLogger, console = mockConsole).logger)
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
@@ -144,6 +154,8 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
 
     var logged: Option[String] = None
 
+    var mdc: Option[Map[String, String]] = None
+
     override def setCause(cause: Throwable) = throw thrown
 
     override def addMarker(m: Slf4jMarker) = {
@@ -162,7 +174,14 @@ final class LoggerSpec extends FlatSpec with Matchers with OneInstancePerTest wi
 
     override def addKeyValue(key: String, value: Supplier[AnyRef]) = throw thrown
 
-    override def log(message: String): Unit = logged = Some(message)
+    override def log(message: String): Unit = {
+      var mdc = Map.empty[String, String]
+      Option(Slf4jMDC.getCopyOfContextMap) foreach {
+        _.entrySet().iterator().forEachRemaining(e => mdc += e.getKey -> e.getValue)
+      }
+      if (mdc.nonEmpty) this.mdc = Some(mdc)
+      logged = Some(message)
+    }
 
     override def log(message: String, arg: AnyRef): Unit = throw thrown
 
