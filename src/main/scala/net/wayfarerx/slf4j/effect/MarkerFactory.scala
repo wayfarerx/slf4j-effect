@@ -16,9 +16,9 @@
 package net.wayfarerx.slf4j.effect
 
 import org.slf4j
-
 import zio.{RIO, Semaphore, Task, UIO, URIO, ZManaged}
 import zio.blocking.Blocking
+import zio.clock.Clock
 import zio.console.Console
 
 /**
@@ -27,14 +27,14 @@ import zio.console.Console
 trait MarkerFactory {
 
   /** The exposed marker factory API. */
-  val markerFactory: MarkerFactoryApi.Aux[Any]
+  val markerFactory: MarkerFactoryApi[Any]
 
 }
 
 /**
  * The global marker factory service and definitions that support the `MarkerFactory` environment.
  */
-object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with MarkerFactoryApi.Service[MarkerFactory] {
+object MarkerFactory extends (MarkerFactoryApi[Any] => MarkerFactory) with MarkerFactoryApi.Service[MarkerFactory] {
 
   /**
    * Creates a new marker factory from the specified marker factory service.
@@ -42,7 +42,7 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
    * @param markerFactory The marker factory service to use in the new marker factory.
    * @return A new marker factory from the specified marker factory service.
    */
-  override def apply(markerFactory: MarkerFactoryApi.Aux[Any]): MarkerFactory = {
+  override def apply(markerFactory: MarkerFactoryApi[Any]): MarkerFactory = {
     val _markerFactory = markerFactory
     new MarkerFactory {
       override val markerFactory = _markerFactory
@@ -63,30 +63,31 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
     val slf4jMarkerFactory: slf4j.IMarkerFactory
 
     /* Implement the marker factory API. */
-    final override val markerFactory: MarkerFactoryApi.Aux[Any] = new MarkerFactoryApi.Service[Any] {
+    final override val markerFactory: MarkerFactoryApi[Any] = new MarkerFactoryApi.Service[Any] {
 
       import Live.MarkerInstance
 
       /** The index of active marker entries and reference counts by name. */
-      private var instances = Map[String, (Live.MarkerInstance, Long)]()
+      private var markerInstances = Map[String, (MarkerInstance, Long)]()
 
       /* Return a managed reference to the specified marker. */
       override def get(name: String, references: Set[Marker]) = ZManaged.make {
         Semaphore make 1L flatMap { semaphore =>
           blocking effectBlocking synchronized {
-            val (instance, count) = instances.getOrElse(name,
+            val (instance, count) = markerInstances.getOrElse(
+              name,
               new MarkerInstance(slf4jMarkerFactory.getMarker(name), semaphore) -> 0L
             )
-            instances += name -> (instance, count + 1L)
+            markerInstances += name -> (instance, count + 1L)
             instance
           }
         }
       } { _ =>
         blocking.effectBlocking {
           synchronized {
-            instances get name foreach { case (instance, count) =>
-              if (count > 1L) instances += name -> (instance, count - 1L) else {
-                instances -= name
+            markerInstances get name foreach { case (instance, count) =>
+              if (count > 1L) markerInstances += name -> (instance, count - 1L) else {
+                markerInstances -= name
                 slf4jMarkerFactory.detachMarker(name)
               }
             }
@@ -95,10 +96,10 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
           failure => Recover("MARKER")(
             s"""Failed to detach SLF4J marker "$name":""",
             2 -> failure
-          ).provide(self),
+          ).provide(slf4jEffectRuntime.Environment), // FIXME
           _ => UIO.unit
         )
-      } flatMap (_ (references.toList) provide self) map (new Marker(_))
+      } flatMap (_ (references.toList) provide slf4jEffectRuntime.Environment) map (new Marker(_)) // FIXME
 
     }
 
@@ -188,7 +189,7 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
        * @param references The references to apply to the marker.
        * @return A managed marker with the specified references applied.
        */
-      def apply(references: List[Marker]): ZManaged[Console, Throwable, slf4j.Marker] = {
+      def apply(references: List[Marker]): ZManaged[Clock with Console, Throwable, slf4j.Marker] = {
         if (references.isEmpty) ZManaged.succeed(())
         else ZManaged.make(semaphore withPermit add(references))(_ => semaphore withPermit remove(references.reverse))
       } map (_ => slf4jMarker)
@@ -199,7 +200,7 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
        * @param remaining The remaining references to add.
        * @return An effect that adds the specified references to the underlying marker.
        */
-      private def add(remaining: List[Marker]): RIO[Console, Unit] = remaining match {
+      private def add(remaining: List[Marker]): RIO[Clock with Console, Unit] = remaining match {
         case head :: tail => Task {
           val count = referenceCounts.getOrElse(head.name, 0L)
           if (count < 1L) slf4jMarker.add(head.slf4jMarker)
@@ -214,7 +215,7 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
        * @param remaining The remaining references to remove.
        * @return An effect that removes the specified references from the underlying marker.
        */
-      private def remove(remaining: List[Marker]): URIO[Console, Unit] = remaining match {
+      private def remove(remaining: List[Marker]): URIO[Clock with Console, Unit] = remaining match {
         case head :: tail => removing(head) ensuring remove(tail)
         case Nil => UIO.unit
       }
@@ -225,7 +226,7 @@ object MarkerFactory extends (MarkerFactoryApi.Aux[Any] => MarkerFactory) with M
        * @param reference The reference to remove from the marker.
        * @return An effect that removes a marker reference while handling any errors.
        */
-      private def removing(reference: Marker): URIO[Console, Unit] = Task {
+      private def removing(reference: Marker): URIO[Clock with Console, Unit] = Task {
         val currentCount = referenceCounts get reference.name
         val count = currentCount getOrElse 0L
         if (count <= 1L) {

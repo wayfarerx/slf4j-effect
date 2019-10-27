@@ -45,8 +45,8 @@ final class MDCSpec extends FlatSpec with Matchers with OneInstancePerTest with 
   }
 
   it should "recursively locate the global fiber reference" in {
-    var cached: Option[MDC.CachedFiberRef] = None
-    cached = Some(new MDC.CachedFiberRef({
+    var cached: Option[MDC.State] = None
+    cached = Some(new MDC.State({
       var reentering = false
       UIO(reentering) flatMap { r =>
         if (r) FiberRef.make(Map.empty[String, String]) else for {

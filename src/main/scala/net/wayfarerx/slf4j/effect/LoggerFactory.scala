@@ -17,7 +17,7 @@ package net.wayfarerx.slf4j.effect
 
 import org.slf4j
 
-import zio.{Task, UIO, ZIO}
+import zio.{Task, ZIO}
 import zio.blocking.Blocking
 import zio.console.Console
 
@@ -27,14 +27,14 @@ import zio.console.Console
 trait LoggerFactory {
 
   /** The exposed logger factory API. */
-  val loggerFactory: LoggerFactoryApi.Aux[Any]
+  val loggerFactory: LoggerFactoryApi[Any]
 
 }
 
 /**
  * The global logger factory service and definitions that support the `LoggerFactory` environment.
  */
-object LoggerFactory extends (LoggerFactoryApi.Aux[Any] => LoggerFactory) with LoggerFactoryApi.Service[LoggerFactory] {
+object LoggerFactory extends (LoggerFactoryApi[Any] => LoggerFactory) with LoggerFactoryApi.Service[LoggerFactory] {
 
   /**
    * Creates a new logger factory from the specified logger factory service.
@@ -42,7 +42,7 @@ object LoggerFactory extends (LoggerFactoryApi.Aux[Any] => LoggerFactory) with L
    * @param loggerFactory The logger factory service to use in the new logger factory.
    * @return A new logger factory from the specified logger factory service.
    */
-  override def apply(loggerFactory: LoggerFactoryApi.Aux[Any]): LoggerFactory = {
+  override def apply(loggerFactory: LoggerFactoryApi[Any]): LoggerFactory = {
     val _loggerFactory = loggerFactory
     new LoggerFactory {
       override val loggerFactory = _loggerFactory
@@ -50,7 +50,7 @@ object LoggerFactory extends (LoggerFactoryApi.Aux[Any] => LoggerFactory) with L
   }
 
   /* Return a logger named according to the name parameter. */
-  override def apply(name: String): Result[Logger] =
+  override def apply(name: String): Result[LoggerOld] =
     ZIO.accessM(_.loggerFactory(name))
 
   /**
@@ -63,11 +63,11 @@ object LoggerFactory extends (LoggerFactoryApi.Aux[Any] => LoggerFactory) with L
     val slf4jLoggerFactory: slf4j.ILoggerFactory
 
     /* Implement the logger factory API. */
-    final override val loggerFactory = new LoggerFactoryApi.Service[Any] {
+    final override val loggerFactory: LoggerFactoryApi[Any] = new LoggerFactoryApi.Service[Any] {
 
       /* Return a logger named according to the name parameter. */
-      override def apply(name: String): Result[Logger] =
-        UIO(slf4jLoggerFactory.getLogger(name)) map (Logger.Live(_, self.blocking, self.console))
+      override def apply(name: String): Result[LoggerOld] =
+        Task(slf4jLoggerFactory.getLogger(name)) map (LoggerOld.Live(_, self.blocking, self.console))
 
     }
 

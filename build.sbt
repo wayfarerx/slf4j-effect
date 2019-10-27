@@ -16,10 +16,12 @@ scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
   case _ => Seq()
 })
 
-libraryDependencies ++= Seq(Slf4j, Cats, Zio, ScalaTest % Test, ScalaMock % Test, Logback % Test)
+addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full)
+
+libraryDependencies ++= Seq(Slf4j, CatsEffect, Zio, ZioCats, ScalaTest % Test, ScalaMock % Test, Logback % Test)
 
 coverageMinimum := 100
-coverageFailOnMinimum := true
+//coverageFailOnMinimum := true
 
 publishMavenStyle := true
 publishTo := {

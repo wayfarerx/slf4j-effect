@@ -27,7 +27,7 @@ import zio.{FiberRef, UIO, ZIO}
 object MDC {
 
   /** The global cached fiber reference. */
-  private val state = new CachedFiberRef
+  private val state = new State
 
   /**
    * Returns the state of the underlying fiber's MDC.
@@ -86,7 +86,7 @@ object MDC {
    *
    * @param create The effect that creates the fiber reference to use.
    */
-  private[effect] final class CachedFiberRef(
+  private[effect] final class State(
     create: UIO[FiberRef[Map[String, String]]] = FiberRef.make(Map.empty[String, String])
   ) {
 

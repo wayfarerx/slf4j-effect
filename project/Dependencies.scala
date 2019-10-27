@@ -2,11 +2,13 @@ import sbt._
 
 object Dependencies {
 
-  lazy val Slf4j = "org.slf4j" % "slf4j-api" % "2.0.0-alpha0"
+  lazy val Slf4j = "org.slf4j" % "slf4j-api" % "2.0.0-alpha1"
 
-  lazy val Cats = "org.typelevel" %% "cats-effect" % "2.0.0-RC2"
+  lazy val CatsEffect = "org.typelevel" %% "cats-effect" % "2.0.0"
 
-  lazy val Zio = "dev.zio" %% "zio" % "1.0.0-RC12-1"
+  lazy val Zio = "dev.zio" %% "zio" % "1.0.0-RC16"
+
+  lazy val ZioCats = "dev.zio" %% "zio-interop-cats" % "2.0.0.0-RC7"
 
   lazy val Logback = "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4"
 

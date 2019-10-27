@@ -15,6 +15,8 @@
 
 package net.wayfarerx.slf4j.effect
 
+import org.slf4j
+
 import zio.{Cause, DefaultRuntime, UIO}
 
 import org.scalamock.scalatest.MockFactory
@@ -28,59 +30,63 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
 
   private val mockLogger = mock[LoggerApi.Service[Any]]
 
+  private val mockSlf4jMarker = mock[slf4j.Marker]
+
   private val runtime = new DefaultRuntime {}
 
   private val thrown = new RuntimeException
 
   "LoggerApi" should "filter and log TRACE events" in {
-    (mockLogger.isEnabled _).expects(Level.Trace).once().returns(UIO(true))
+    (mockLogger.isEnabled(_: Level)).expects(Level.Trace).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isTraceEnabled) shouldBe true
     mockLogger.trace shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace)
   }
 
   it should "filter and log DEBUG events" in {
-    (mockLogger.isEnabled _).expects(Level.Debug).once().returns(UIO(true))
+    (mockLogger.isEnabled(_: Level)).expects(Level.Debug).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isDebugEnabled) shouldBe true
     mockLogger.debug shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Debug)
   }
 
   it should "filter and log INFO events" in {
-    (mockLogger.isEnabled _).expects(Level.Info).once().returns(UIO(true))
+    (mockLogger.isEnabled(_: Level)).expects(Level.Info).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isInfoEnabled) shouldBe true
     mockLogger.info shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Info)
   }
 
   it should "filter and log WARN events" in {
-    (mockLogger.isEnabled _).expects(Level.Warn).once().returns(UIO(true))
+    (mockLogger.isEnabled(_: Level)).expects(Level.Warn).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isWarnEnabled) shouldBe true
     mockLogger.warn shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Warn)
   }
 
   it should "filter and log ERROR events" in {
-    (mockLogger.isEnabled _).expects(Level.Error).once().returns(UIO(true))
+    (mockLogger.isEnabled(_: Level)).expects(Level.Error).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isErrorEnabled) shouldBe true
     mockLogger.error shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Error)
   }
 
-  "LoggerApi.EventBuilder" should "support event components" in {
+  "LoggerApi.EventBuilder" should "support event metadata" in {
+    val marker = new Marker(mockSlf4jMarker)
     mockLogger.trace(
       "boolean" -> true,
       "byte" -> 1.toByte,
       "short" -> 2.toShort,
       "int" -> 3,
       "long" -> 4L,
+      marker,
       "float" -> 5f,
       "double" -> 6.0,
       "char" -> 'x',
       "string" -> "str"
-    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, keyValuePairs = Map(
+    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, markers = Set(marker), keyValuePairs = Map(
       "boolean" -> java.lang.Boolean.TRUE,
-      "byte" -> java.lang.Byte.valueOf("1"),
-      "short" -> java.lang.Short.valueOf("2"),
-      "int" -> java.lang.Integer.valueOf("3"),
-      "long" -> java.lang.Long.valueOf("4"),
-      "float" -> java.lang.Float.valueOf("5"),
-      "double" -> java.lang.Double.valueOf("6"),
+      "byte" -> java.lang.Byte.valueOf(1.toByte),
+      "short" -> java.lang.Short.valueOf(2.toShort),
+      "int" -> java.lang.Integer.valueOf(3),
+      "long" -> java.lang.Long.valueOf(4L),
+      "float" -> java.lang.Float.valueOf(5f),
+      "double" -> java.lang.Double.valueOf(6.0),
       "char" -> java.lang.Character.valueOf('x'),
       "string" -> "str"
     ))

@@ -16,13 +16,13 @@
 package net.wayfarerx.slf4j.effect
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.OffsetDateTime
 
 import zio.console.Console
 import zio.{Cause, DefaultRuntime, UIO}
-
 import org.scalamock.scalatest.MockFactory
-
 import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
+import zio.clock.Clock
 
 /**
  * Test suite for the recovery operation.
@@ -31,15 +31,21 @@ final class RecoverSpec extends FlatSpec with Matchers with OneInstancePerTest w
 
   private val runtime = new DefaultRuntime {}
 
+  private val mockClockService = mock[Clock.Service[Any]]
   private val mockConsoleService = mock[Console.Service[Any]]
 
-  private val mockConsole = new Console {
+  private val mockEnvironment = new Clock with Console {
+    override val clock: Clock.Service[Any] = mockClockService
     override val console: Console.Service[Any] = mockConsoleService
   }
 
+  private val prefix = "PREFIX"
+  private val now = OffsetDateTime.now
+
   "Recover" should "log string reports to the console" in {
-    (mockConsoleService.putStr _).expects(printed(0 -> "Operation failed")).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover()("Operation failed").provide(mockConsole))
+    (mockConsoleService.putStr _).expects(printed(0 -> "failed")).returns(UIO.unit).once()
+    runtime.unsafeRun(Recover(prefix, Some(now))("failed").provide(mockEnvironment))
+    runtime.unsafeRun(Recover(prefix, Some(now))(None: Option[String]).provide(mockEnvironment))
   }
 
   it should "log throwable reports to the console" in {
@@ -49,30 +55,27 @@ final class RecoverSpec extends FlatSpec with Matchers with OneInstancePerTest w
     thrown.printStackTrace(out)
     out.flush()
     (mockConsoleService.putStr _).expects(printed(0 -> expected.toString)).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover()(thrown).provide(mockConsole))
+    runtime.unsafeRun(Recover(prefix, Some(now))(thrown).provide(mockEnvironment))
+    runtime.unsafeRun(Recover(prefix, Some(now))(None: Option[Throwable]).provide(mockEnvironment))
   }
 
   it should "log cause reports to the console" in {
     val cause = Cause.fail(new RuntimeException)
     (mockConsoleService.putStr _).expects(printed(0 -> cause.prettyPrint)).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover()(cause).provide(mockConsole))
+    runtime.unsafeRun(Recover(prefix, Some(now))(cause).provide(mockEnvironment))
+    runtime.unsafeRun(Recover(prefix, Some(now))(None: Option[Cause[Any]]).provide(mockEnvironment))
   }
 
   it should "log optional reports to the console" in {
-    (mockConsoleService.putStr _).expects(printed(0 -> "Operation failed")).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover()(Some("Operation failed")).provide(mockConsole))
-    runtime.unsafeRun(Recover()(None: Option[String]).provide(mockConsole))
+    (mockConsoleService.putStr _).expects(printed(0 -> "failed")).returns(UIO.unit).once()
+    runtime.unsafeRun(Recover(prefix, Some(now))(Some("failed")).provide(mockEnvironment))
+    runtime.unsafeRun(Recover(prefix, Some(now))(None: Option[String]).provide(mockEnvironment))
   }
 
   it should "log indented reports to the console" in {
-    (mockConsoleService.putStr _).expects(printed(2 -> "Operation failed")).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover()(2 -> "Operation failed").provide(mockConsole))
-    runtime.unsafeRun(Recover()(None: Option[String]).provide(mockConsole))
-  }
-
-  it should "log prefixed reports to the console" in {
-    (mockConsoleService.putStr _).expects(printed(0 -> "PREFIX Operation failed")).returns(UIO.unit).once()
-    runtime.unsafeRun(Recover("PREFIX")("Operation failed").provide(mockConsole))
+    (mockConsoleService.putStr _).expects(printed(2 -> "failed")).returns(UIO.unit).once()
+    runtime.unsafeRun(Recover(prefix, Some(now))(2 -> "failed").provide(mockEnvironment))
+    runtime.unsafeRun(Recover(prefix, Some(now))(2 -> (None: Option[String])).provide(mockEnvironment))
   }
 
   /** Normalize the specified sequence of chunks. */
@@ -80,8 +83,11 @@ final class RecoverSpec extends FlatSpec with Matchers with OneInstancePerTest w
     val result = new StringWriter()
     val out = new PrintWriter(result)
     chunks.iterator flatMap { case (indent, chunk) =>
-      chunk.linesIterator map (" " * indent + _)
-    } filterNot (_.trim.isEmpty) foreach out.println
+      chunk.linesIterator filterNot (_.trim.isEmpty) map { line =>
+        val result = s"$now${" " * indent} $line"
+        if (prefix.isEmpty) result else s"$prefix $result"
+      }
+    } foreach out.println
     out.flush()
     result.toString
   }

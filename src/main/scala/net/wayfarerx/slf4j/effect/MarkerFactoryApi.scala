@@ -55,9 +55,6 @@ trait MarkerFactoryApi[-R] {
  */
 object MarkerFactoryApi {
 
-  /** The type of marker factory APIs with a fixed environment. */
-  type Aux[R] = MarkerFactoryApi[R] {type Result[+A] = ZManaged[R, Throwable, A]}
-
   /**
    * Base type for marker factory API implementations.
    *

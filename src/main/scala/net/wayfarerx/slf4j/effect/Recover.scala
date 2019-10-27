@@ -16,71 +16,62 @@
 package net.wayfarerx.slf4j.effect
 
 import java.io.{PrintWriter, StringWriter}
+import java.time.{LocalDateTime, OffsetDateTime}
 
 import language.implicitConversions
 
 import zio.{Cause, UIO, URIO, ZIO}
+import zio.clock.Clock
 import zio.console.Console
 
 /**
- * A low-level, optionally prefixed recovery utility that prints to the console.
- *
- * @param prefix The optional string to prefix console lines with.
- */
-private case class Recover(prefix: Option[String] = None) {
-
-  /**
-   * Prints the specified reports on the console.
-   *
-   * @param reports The reports to print on the console.
-   * @return An effect that prints the specified reports on the console.
-   */
-  def apply(reports: Recover.Report[_]*): URIO[Console, Unit] = for {
-    report <- UIO {
-      val result = new StringWriter()
-      val out = new PrintWriter(result)
-      val lines = reports.iterator flatMap (_.lines)
-      prefix map (p => lines map (l => s"$p $l")) getOrElse lines foreach out.println
-      out.flush()
-      result.toString
-    }
-    _ <- if (report.isEmpty) UIO.unit else ZIO.accessM[Console](_.console.putStr(report))
-  } yield ()
-
-}
-
-/**
- * A low-level utility that logs various information to the console when loggers cannot (i.e. when a logger fails).
+ * An internal utility that prints various information to the console when loggers fail.
  */
 private object Recover {
 
-  /** A regex that matches empty or all-whitespace strings. */
-  private val emptyOrWhitespace = "^\\s*$".r
-
   /**
-   * Creates a prefixed recovery utility that prints to the console.
+   * Prints the specified reports to the console.
    *
-   * @param prefix The string to prefix console lines with.
+   * @param prefix    The string to prefix console lines with.
+   * @param timestamp The timestamp to prefix console lines with, defaults to the current time.
+   * @param reports   The reports to print to the console.
+   * @return An effect that prints the specified reports to the console.
    */
-  def apply(prefix: String): Recover = Recover(Some(prefix))
+  def apply(
+    prefix: String,
+    timestamp: Option[OffsetDateTime] = None
+  )(
+    reports: Report[_]*
+  ): URIO[Clock with Console, Unit] =
+    for {
+      actualTimestamp <- timestamp map (UIO(_)) getOrElse ZIO.accessM[Clock](_.clock.currentDateTime)
+      message <- UIO {
+        val result = new StringWriter()
+        val out = new PrintWriter(result)
+        val linePrefix = s"$prefix $actualTimestamp "
+        reports.iterator flatMap (_.lines) foreach (out println linePrefix + _)
+        out.flush()
+        result.toString
+      }
+      _ <- if (message.isEmpty) UIO.unit else ZIO.accessM[Console](_.console.putStr(message))
+    } yield ()
 
   /**
-   * A console report used when recovering from problems.
+   * A report that contains a collection of indented lines.
    *
-   * @tparam I The type of input to report during recovery.
+   * @tparam T The type of data to report.
    * @param indent The depth to indent this report.
-   * @param input  The input to report during recovery.
+   * @param input  The data to report.
    */
-  case class Report[I: Input](indent: Int, input: I) {
+  case class Report[T: Reported](indent: Int, input: T) {
 
-    /** Returns the non-empty lines in this report, properly indented. */
-    def lines: Iterator[String] = {
-      val indented = " " * indent
-      implicitly[Input[I]]
-        .text(input)
-        .linesIterator
-        .filterNot(emptyOrWhitespace.pattern.matcher(_).matches())
-        .map(indented + _)
+    /** The indented lines in this report. */
+    lazy val lines: Iterator[String] = {
+      val indention = if (indent <= 0) None else Some(" " * indent)
+
+      Reported(input).linesIterator filterNot (_.trim.isEmpty) map { line =>
+        indention map (i => s"$i$line") getOrElse line
+      }
     }
 
   }
@@ -90,53 +81,51 @@ private object Recover {
    */
   object Report {
 
-    /** Treat any input as an unindented report. */
-    implicit def inputToReport[T: Input](input: T): Report[T] = Report(0, input)
+    /**
+     * Treat any data as an unindented report.
+     *
+     * @tparam T The type of data to report.
+     * @param data The data to report.
+     * @return An unindented report for the specified data.
+     */
+    implicit def reportedToReport[T: Reported](data: T): Report[T] = Report(0, data)
 
     /** Treat any integer and input pair as a properly indented report. */
-    implicit def indentedInputToReport[T: Input](input: (Int, T)): Report[T] = Report(input._1, input._2)
+    implicit def indentedReportedToReport[T: Reported](indented: (Int, T)): Report[T] = Report(indented._1, indented._2)
 
   }
 
   /**
-   * Base type for strategies that convert input data into reportable text.
+   * Type class that converts input data into reportable text.
    *
-   * @tparam T The type of input data that can be converted into reportable text.
+   * @tparam T The type of input that can be converted into reportable text.
    */
-  trait Input[-T] {
-
-    /**
-     * Converts the specified input data into reportable text.
-     *
-     * @param input The input data to convert into reportable text.
-     * @return The specified input data converted into reportable text.
-     */
-    def text(input: T): String
-
-  }
+  trait Reported[-T] extends (T => String)
 
   /**
-   * Implicit support for common input types.
+   * Implicit support for the reported types.
    */
-  object Input {
+  object Reported {
 
-    /** Implicit support for string inputs as themselves. */
-    implicit val strings: Input[String] = identity(_)
+    /** Implicit support for reported strings. */
+    implicit val string: Reported[String] = identity(_)
 
-    /** Implicit support for throwable inputs as their stack trace. */
-    implicit val throwables: Input[Throwable] = t => {
+    /** Implicit support for reported throwables. */
+    implicit val throwable: Reported[Throwable] = thrown => {
       val result = new StringWriter()
       val out = new PrintWriter(result)
-      t.printStackTrace(out)
+      thrown.printStackTrace(out)
       out.flush()
       result.toString
     }
 
-    /** Implicit support for cause inputs as their pretty printed selves. */
-    implicit def causes[E]: Input[Cause[E]] = _.prettyPrint
+    /** Implicit support for reported causes. */
+    implicit val cause: Reported[Cause[Any]] = _.prettyPrint
 
-    /** Implicit support for all optional inputs. */
-    implicit def options[T: Input]: Input[Option[T]] = _ map implicitly[Input[T]].text getOrElse ""
+    /** Implicit support for optional reported data. */
+    implicit def option[T: Reported]: Reported[Option[T]] = _ map apply[T] getOrElse ""
+
+    def apply[T: Reported](input: T): String = implicitly[Reported[T]].apply(input)
 
   }
 

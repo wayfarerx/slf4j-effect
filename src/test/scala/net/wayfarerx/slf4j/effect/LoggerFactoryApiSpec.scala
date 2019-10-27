@@ -26,7 +26,7 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
  */
 final class LoggerFactoryApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
-  private val mockLogger = mock[Logger]
+  private val mockLogger = mock[LoggerOld]
 
   private val mockLoggerFactory = mock[LoggerFactoryApi.Service[Any]]
 
@@ -34,7 +34,7 @@ final class LoggerFactoryApiSpec extends FlatSpec with Matchers with OneInstance
 
   "LoggerFactoryApi" should "return loggers by class name" in {
     (mockLoggerFactory.apply(_: String)).expects(getClass.getName).once().returns(UIO(mockLogger))
-    runtime.unsafeRun(mockLoggerFactory(getClass)) shouldBe mockLogger
+    runtime.unsafeRun(mockLoggerFactory.apply[LoggerFactoryApiSpec]()) shouldBe mockLogger
   }
 
 }

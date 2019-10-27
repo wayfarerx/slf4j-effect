@@ -17,7 +17,9 @@ package net.wayfarerx.slf4j.effect
 
 import language.higherKinds
 
-import zio.URIO
+import zio.RIO
+
+import scala.reflect.ClassTag
 
 /**
  * Definition of the API for accessing SLF4J logger factories.
@@ -27,7 +29,7 @@ import zio.URIO
 trait LoggerFactoryApi[-R] {
 
   /** The type of result returned by this API. */
-  type Result[+A] <: URIO[R, A]
+  type Result[+A] <: RIO[R, A]
 
   /**
    * Returns a logger named according to the name parameter.
@@ -35,17 +37,16 @@ trait LoggerFactoryApi[-R] {
    * @param name The name of the logger.
    * @return A logger named according to the name parameter.
    */
-  def apply(name: String): Result[Logger]
+  def apply(name: String): Result[LoggerOld]
 
   /**
-   * Returns a logger named corresponding to the class passed as parameter
+   * Returns a logger named corresponding to the class passed as parameter.
    *
-   * @tparam T The type of the specified class.
-   * @param cls The class to name the returned logger after.
-   * @return A logger named corresponding to the class passed as parameter
+   * @tparam T The type of the class to name the logger after.
+   * @return A logger named corresponding to the class passed as parameter.
    */
-  final def apply[T](cls: Class[T]): Result[Logger] =
-    apply(cls.getName)
+  final def apply[T: ClassTag](): Result[LoggerOld] =
+    apply(implicitly[ClassTag[T]].runtimeClass.getName)
 
 }
 
@@ -53,9 +54,6 @@ trait LoggerFactoryApi[-R] {
  * Definitions that support the `LoggerFactoryApi` trait.
  */
 object LoggerFactoryApi {
-
-  /** The type of logger factory APIs with a fixed environment. */
-  type Aux[R] = LoggerFactoryApi[R] {type Result[+A] = URIO[R, A]}
 
   /**
    * Base type for logger factory API implementations.
@@ -65,7 +63,7 @@ object LoggerFactoryApi {
   trait Service[R] extends LoggerFactoryApi[R] {
 
     /* Configure the type of result returned by this API. */
-    final override type Result[+A] = URIO[R, A]
+    final override type Result[+A] = RIO[R, A]
 
   }
 

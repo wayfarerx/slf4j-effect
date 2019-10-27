@@ -15,40 +15,41 @@
 
 package net.wayfarerx.slf4j.effect
 
-import org.slf4j.{event => slf4j}
+import org.slf4j.event.{Level => Slf4jLevel}
 
 /**
  * Base type for the supported logging levels.
+ *
+ * @param slf4jLevel The supported SLF4J logging level.
  */
-sealed abstract class Level(val slf4jLevel: slf4j.Level) extends Product {
+sealed abstract class Level(val slf4jLevel: Slf4jLevel) extends Product {
 
   /** Returns the SLF4J logging level integer. */
-  def toInt: Int = slf4jLevel.toInt
+  final def toInt: Int = slf4jLevel.toInt
 
-  /* Return the SLF4J logging level string. */
-  override def toString: String = slf4jLevel.toString
+  /** Returns the SLF4J logging level string. */
+  final override def toString: String = slf4jLevel.toString
 
 }
 
 /**
- * Support for the `Level` type.
+ * Implementations of the supported logging levels.
  */
-object Level extends (slf4j.Level => Level) {
+object Level extends (Slf4jLevel => Level) {
 
   /** All of the supported logging levels. */
-  lazy val Levels: Set[Level] =
-    Set(Trace, Debug, Info, Warn, Error)
+  lazy val Levels: Set[Level] = Set(Trace, Debug, Info, Warn, Error)
 
-  /** Logging levels indexed by SLF4J `Level`. */
-  private lazy val levelsBySlf4jLevel: Map[slf4j.Level, Level] =
+  /** The supported logging levels indexed by SLF4J `Level`. */
+  private lazy val LevelsBySlf4jLevel: Map[Slf4jLevel, Level] =
     Levels.iterator.map(l => l.slf4jLevel -> l).toMap
 
-  /** Logging levels indexed by SLF4J `Level` integer. */
-  private lazy val levelsBySlf4jLevelInt: Map[Int, Level] =
+  /** The supported logging levels indexed by SLF4J `Level` integer. */
+  private lazy val LevelsByInt: Map[Int, Level] =
     Levels.iterator.map(l => l.toInt -> l).toMap
 
-  /** Logging levels indexed by SLF4J `Level` string. */
-  private lazy val levelsBySlf4jLevelStr: Map[String, Level] =
+  /** The supported logging levels indexed by SLF4J `Level` string. */
+  private lazy val LevelsByString: Map[String, Level] =
     Levels.iterator.map(l => l.toString().toUpperCase -> l).toMap
 
   /**
@@ -57,40 +58,40 @@ object Level extends (slf4j.Level => Level) {
    * @param slf4jLevel The SLF4J `Level` to return the logging level for.
    * @return The logging level for the specified SLF4J `Level`.
    */
-  override def apply(slf4jLevel: slf4j.Level): Level =
-    levelsBySlf4jLevel(slf4jLevel)
+  override def apply(slf4jLevel: Slf4jLevel): Level =
+    LevelsBySlf4jLevel(slf4jLevel)
 
   /**
-   * Returns the logging level for the specified SLF4J `Level` integer.
+   * Returns the logging level for the specified SLF4J `Level` integer if one exists.
    *
    * @param slf4jLevelInt The SLF4J `Level` integer to return the logging level for.
-   * @return The logging level for the specified SLF4J `Level` integer.
+   * @return The logging level for the specified SLF4J `Level` integer if one exists.
    */
   def apply(slf4jLevelInt: Int): Option[Level] =
-    levelsBySlf4jLevelInt get slf4jLevelInt
+    LevelsByInt get slf4jLevelInt
 
   /**
-   * Returns the logging level for the specified SLF4J `Level` string.
+   * Returns the logging level for the specified SLF4J `Level` string if one exists.
    *
    * @param slf4jLevelStr The SLF4J `Level` string to return the logging level for.
-   * @return The logging level for the specified SLF4J `Level` string.
+   * @return The logging level for the specified SLF4J `Level` string if one exists.
    */
   def apply(slf4jLevelStr: String): Option[Level] =
-    levelsBySlf4jLevelStr get slf4jLevelStr.toUpperCase
+    LevelsByString get slf4jLevelStr.toUpperCase
 
   /** The `TRACE` logging level. */
-  case object Trace extends Level(slf4j.Level.TRACE)
+  case object Trace extends Level(Slf4jLevel.TRACE)
 
   /** The `DEBUG` logging level. */
-  case object Debug extends Level(slf4j.Level.DEBUG)
+  case object Debug extends Level(Slf4jLevel.DEBUG)
 
   /** The `INFO` logging level. */
-  case object Info extends Level(slf4j.Level.INFO)
+  case object Info extends Level(Slf4jLevel.INFO)
 
   /** The `WARN` logging level. */
-  case object Warn extends Level(slf4j.Level.WARN)
+  case object Warn extends Level(Slf4jLevel.WARN)
 
   /** The `ERROR` logging level. */
-  case object Error extends Level(slf4j.Level.ERROR)
+  case object Error extends Level(Slf4jLevel.ERROR)
 
 }

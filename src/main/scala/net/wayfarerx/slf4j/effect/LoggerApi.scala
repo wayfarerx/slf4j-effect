@@ -16,11 +16,10 @@
 package net.wayfarerx.slf4j.effect
 
 import language.{higherKinds, implicitConversions}
-
-import zio.{Cause, URIO}
+import zio.{Cause, UIO, URIO}
 
 /**
- * Definition of the API for accessing SLF4J loggers.
+ * Definition of the API for using SLF4J loggers.
  *
  * @tparam R The environment type to require in results.
  */
@@ -34,70 +33,70 @@ trait LoggerApi[-R] {
   /**
    * Returns true if the `TRACE` logging level is enabled.
    *
-   * @return A result that returns true if the `TRACE` logging level is enabled.
+   * @return A result that evaluates to true if the `TRACE` logging level is enabled.
    */
   final def isTraceEnabled: Result[Boolean] = isEnabled(Level.Trace)
 
   /**
    * Prepares to log a message at the `TRACE` logging level.
    *
-   * @return A logging event builder at the `TRACE` logging level.
+   * @return A logging event builder set to the `TRACE` logging level.
    */
   final def trace: EventBuilder[R] = log(Level.Trace)
 
   /**
    * Returns true if the `DEBUG` logging level is enabled.
    *
-   * @return A result that returns true if the `DEBUG` logging level is enabled.
+   * @return A result that evaluates to true if the `DEBUG` logging level is enabled.
    */
   final def isDebugEnabled: Result[Boolean] = isEnabled(Level.Debug)
 
   /**
    * Prepares to log a message at the `DEBUG` logging level.
    *
-   * @return A logging event builder at the `DEBUG` logging level.
+   * @return A logging event builder set to the `DEBUG` logging level.
    */
   final def debug: EventBuilder[R] = log(Level.Debug)
 
   /**
    * Returns true if the `INFO` logging level is enabled.
    *
-   * @return A result that returns true if the `INFO` logging level is enabled.
+   * @return A result that evaluates to true if the `INFO` logging level is enabled.
    */
   final def isInfoEnabled: Result[Boolean] = isEnabled(Level.Info)
 
   /**
    * Prepares to log a message at the `INFO` logging level.
    *
-   * @return A logging event builder at the `INFO` logging level.
+   * @return A logging event builder set to the `INFO` logging level.
    */
   final def info: EventBuilder[R] = log(Level.Info)
 
   /**
    * Returns true if the `WARN` logging level is enabled.
    *
-   * @return A result that returns true if the `WARN` logging level is enabled.
+   * @return A result that evaluates to true if the `WARN` logging level is enabled.
    */
   final def isWarnEnabled: Result[Boolean] = isEnabled(Level.Warn)
 
   /**
    * Prepares to log a message at the `WARN` logging level.
    *
-   * @return A logging event builder at the `WARN` logging level.
+   * @return A logging event builder set to the `WARN` logging level.
    */
   final def warn: EventBuilder[R] = log(Level.Warn)
 
   /**
    * Returns true if the `ERROR` logging level is enabled.
    *
-   * @return A result that returns true if the `ERROR` logging level is enabled.
+   * @return A result that evaluates to true if the `ERROR` logging level is enabled.
    */
   final def isErrorEnabled: Result[Boolean] = isEnabled(Level.Error)
 
   /**
    * Prepares to log a message at the `ERROR` logging level.
    *
-   * @return A logging event builder at the `ERROR` logging level.
+   * @return A logging event builder set to the `ERROR` logging level.
    */
   final def error: EventBuilder[R] = log(Level.Error)
 
@@ -105,33 +104,42 @@ trait LoggerApi[-R] {
    * Returns true if the specified logging level is enabled.
    *
    * @param level The logging level to check the status of.
-   * @return A result that returns true if the specified logging level is enabled.
+   * @return A result that evaluates to true if the specified logging level is enabled.
    */
   def isEnabled(level: Level): Result[Boolean]
+
+  /**
+   * Returns true if the specified logging level is enabled with the supplied marker.
+   *
+   * @param level  The logging level to check the status of.
+   * @param marker The marker to check the status of.
+   * @return A result that evaluates to true if the specified logging level is enabled with the supplied marker.
+   */
+  def isEnabled(level: Level, marker: Marker): Result[Boolean]
 
   /**
    * Prepares to log a message at the specified level.
    *
    * @param level The level to log the message at.
-   * @return A logging event builder at the specified level.
+   * @return A logging event builder set to the specified level.
    */
   final def log(level: Level): EventBuilder[R] = EventBuilder(this, level)
 
   /**
-   * Attempts to submit a log event at the specified level using the supplied logging event data.
+   * Submits a logging event at the specified level using the supplied logging event data.
    *
    * @param level         The level to log the message at.
    * @param markers       The markers to use for the logging event.
    * @param keyValuePairs The key/value pairs to use for the logging event.
    * @param message       The message to log.
    * @param cause         The optional cause of the resulting logging event.
-   * @return A result that attempts to submit a log event at the specified level
+   * @return A result that attempts to submit a logging event at the specified level
    */
   def submit(
     level: Level,
     markers: Set[Marker],
     keyValuePairs: Map[String, AnyRef],
-    message: => String,
+    message: UIO[String],
     cause: Option[Throwable]
   ): Result[Unit]
 
@@ -142,11 +150,8 @@ trait LoggerApi[-R] {
  */
 object LoggerApi {
 
-  /** The type of logger APIs with a fixed environment. */
-  type Aux[R] = LoggerApi[R] {type Result[+A] = URIO[R, A]}
-
   /**
-   * Base type for logger API implementations.
+   * Base type for logger API implementations with a fixed environment type.
    *
    * @tparam R The environment type to require in results.
    */
@@ -158,13 +163,13 @@ object LoggerApi {
   }
 
   /**
-   * A wrapper around a `LoggerApi` that collects the data about a logging event.
+   * A wrapper around a logger API that collects information about a logging event.
    *
    * @tparam R The environment type to require in results.
-   * @param loggerApi     The `LoggerApi` to use.
-   * @param level         The level this builder will log at.
-   * @param markers       The markers to use for the logging event.
-   * @param keyValuePairs The key/value pairs to use for the logging event.
+   * @param loggerApi     The logger API to wrap.
+   * @param level         The level to use when the logging the event.
+   * @param markers       The markers to supply when the logging the event.
+   * @param keyValuePairs The key/value pairs to supply when the logging the event.
    */
   case class EventBuilder[-R](
     loggerApi: LoggerApi[R],
@@ -176,13 +181,13 @@ object LoggerApi {
     import EventBuilder._
 
     /**
-     * Returns this event builder with the specified component(s) appended.
+     * Returns this event builder with the specified metadata appended.
      *
-     * @param components The component(s) to append.
-     * @return This event builder with the specified component(s) appended.
+     * @param metadata The metadata to append.
+     * @return This event builder with the specified metadata appended.
      */
-    def apply(components: EventComponent*): EventBuilder[R] =
-      components.foldLeft(this)((builder, component) => component(builder))
+    def apply(metadata: Metadata[_]*): EventBuilder[R] =
+      metadata.foldLeft(this)((builder, data) => data(builder))
 
     /**
      * Submits this event builder with the specified message.
@@ -191,7 +196,7 @@ object LoggerApi {
      * @return The result of submitting this event builder with the specified message.
      */
     def apply(message: => String): URIO[R, Unit] =
-      loggerApi.submit(level, markers, keyValuePairs, message, None)
+      apply(UIO(message))
 
     /**
      * Submits this event builder with the specified message and cause.
@@ -201,8 +206,8 @@ object LoggerApi {
      * @param cause   The cause to record with the logging event.
      * @return The result of submitting this event builder with the specified message and cause.
      */
-    def apply[C: CauseSupport](message: => String, cause: C): URIO[R, Unit] =
-      loggerApi.submit(level, markers, keyValuePairs, message, Some(CauseSupport(cause)))
+    def apply[C: ThrowableAdapter](message: => String, cause: C): URIO[R, Unit] =
+      apply(UIO(message), cause)
 
     /**
      * Submits this event builder with the specified message and optional cause.
@@ -212,149 +217,234 @@ object LoggerApi {
      * @param cause   The optional cause to record with the logging event.
      * @return The result of submitting this event builder with the specified message and optional cause.
      */
-    def apply[C: CauseSupport](message: => String, cause: Option[C]): URIO[R, Unit] =
-      loggerApi.submit(level, markers, keyValuePairs, message, cause map (CauseSupport(_)))
+    def apply[C: ThrowableAdapter](message: => String, cause: Option[C]): URIO[R, Unit] =
+      apply(UIO(message), cause)
+
+    /**
+     * Submits this event builder with the specified message.
+     *
+     * @param message An effect that returns the log message.
+     * @return The result of submitting this event builder with the specified message.
+     */
+    def apply(message: UIO[String]): URIO[R, Unit] =
+      loggerApi.submit(level, markers, keyValuePairs, message, None)
+
+    /**
+     * Submits this event builder with the specified message and cause.
+     *
+     * @tparam C The type of cause that inspired this log entry.
+     * @param message An effect that returns the log message.
+     * @param cause   The cause to record with the logging event.
+     * @return The result of submitting this event builder with the specified message and cause.
+     */
+    def apply[C: ThrowableAdapter](message: UIO[String], cause: C): URIO[R, Unit] =
+      loggerApi.submit(level, markers, keyValuePairs, message, Some(ThrowableAdapter(cause)))
+
+    /**
+     * Submits this event builder with the specified messag and optional cause.
+     *
+     * @tparam C The type of cause that inspired this log entry.
+     * @param message An effect that returns the log message.
+     * @param cause   The optional cause to record with the logging event.
+     * @return The result of submitting this event builder with the specified message and optional cause.
+     */
+    def apply[C: ThrowableAdapter](message: UIO[String], cause: Option[C]): URIO[R, Unit] =
+      loggerApi.submit(level, markers, keyValuePairs, message, cause map ThrowableAdapter[C]())
 
   }
 
   /**
-   * Definitions that support the `EventBuilder` type.
+   * Definitions that support event builders.
    */
   object EventBuilder {
 
     /**
-     * Base type for objects that capture event components.
+     * A piece of metadata paired with its adapter.
+     *
+     * @tparam T The underlying type to apply to an event builder.
      */
-    trait EventComponent {
+    case class Metadata[T: MetadataAdapter](data: T) {
 
       /**
-       * Applies this event component to the specified event builder.
+       * Applies the underlying metadata to the specified event builder.
        *
        * @tparam R The type required by the builder.
-       * @param builder The builder to apply this event component to.
-       * @return The specified event builder with this event component applied to it.
+       * @param builder The builder to apply the underlying metadata to.
+       * @return The specified event builder with the underlying metadata applied to it.
        */
-      def apply[R](builder: EventBuilder[R]): EventBuilder[R]
+      def apply[R](builder: EventBuilder[R]): EventBuilder[R] = MetadataAdapter(builder, data)
 
     }
 
     /**
-     * Definitions of the supported event component types.
+     * The implicit metadata factory.
      */
-    object EventComponent {
+    object Metadata {
 
-      /** The marker event component implementation. */
-      implicit def markerAsEventComponent(marker: Marker): EventComponent =
-        new EventComponent {
-          override def apply[R](builder: EventBuilder[R]) =
+      /**
+       * Implicit support for all metadata types with an implicit metadata adapter.
+       *
+       * @tparam T The underlying type to apply to an event builder.
+       * @param data The metadata to apply to the builder.
+       * @return Implicit support for all metadata types with an implicit metadata adapter.
+       */
+      implicit def asMetadata[T: MetadataAdapter](data: T): Metadata[T] = Metadata(data)
+
+    }
+
+    /**
+     * A type class that applies an instance of the underlying type to an event builder.
+     *
+     * @tparam T The underlying type to apply to an event builder.
+     */
+    trait MetadataAdapter[-T] {
+
+      /**
+       * Applies the supplied metadata to the specified event builder.
+       *
+       * @tparam R The type required by the builder.
+       * @param builder The builder to apply the metadata to.
+       * @param data    The metadata to apply to the builder.
+       * @return The specified event builder with the supplied metadata applied to it.
+       */
+      def apply[R](builder: EventBuilder[R], data: T): EventBuilder[R]
+
+    }
+
+    /**
+     * The supported metadata adapter implementations.
+     */
+    object MetadataAdapter {
+
+      /** Support for all markers. */
+      implicit val markerAdapter: MetadataAdapter[Marker] =
+        new MetadataAdapter[Marker] {
+          override def apply[R](builder: EventBuilder[R], marker: Marker) =
             builder.copy(markers = builder.markers + marker)
         }
 
-      /** The key/value pair event component implementation. */
-      implicit def keyValuePairAsEventComponent[T: ValueSupport](component: (String, T)): EventComponent =
-        new EventComponent {
-          override def apply[R](builder: EventBuilder[R]) =
-            builder.copy(keyValuePairs = builder.keyValuePairs + (component._1 -> ValueSupport(component._2)))
+      /** Support for all adaptable key / value pairs. */
+      implicit def keyValuePairAdapter[V: ReferenceAdapter]: MetadataAdapter[(String, V)] =
+        new MetadataAdapter[(String, V)] {
+          override def apply[R](builder: EventBuilder[R], pair: (String, V)) =
+            builder.copy(keyValuePairs = builder.keyValuePairs + (pair._1 -> ReferenceAdapter(pair._2)))
         }
+
+      /**
+       * Returns the implicit metadata adapter type class for the specified type.
+       *
+       * @tparam T The type to return the implicit metadata adapter type class for.
+       * @return The implicit metadata adapter type class for the specified type.
+       */
+      def apply[T: MetadataAdapter](): MetadataAdapter[T] =
+        implicitly[MetadataAdapter[T]]
+
+      /**
+       * Applies the supplied metadata to the specified event builder.
+       *
+       * @tparam R The type required by the builder.
+       * @tparam T The type of data to apply to the builder.
+       * @param builder The builder to apply the metadata to.
+       * @param data    The metadata to apply to the builder.
+       * @return The specified event builder with the supplied metadata applied to it.
+       */
+      def apply[R, T: MetadataAdapter](builder: EventBuilder[R], data: T): EventBuilder[R] =
+        MetadataAdapter[T]().apply(builder, data)
 
     }
 
     /**
-     * A type class that converts a value of the underlying type into a reference.
+     * A type class that converts an instance of the underlying type into a reference.
      *
      * @tparam T The underlying type to convert into a reference.
      */
-    trait ValueSupport[-T] extends (T => AnyRef)
+    trait ReferenceAdapter[-T] extends (T => AnyRef)
 
     /**
-     * Definition of the supported values.
+     * The supported reference adapter implementations.
      */
-    object ValueSupport {
+    object ReferenceAdapter {
 
-      /** Support for all booleans as values. */
-      implicit val booleans: ValueSupport[Boolean] = java.lang.Boolean.valueOf
+      /** Support for all references. */
+      implicit val referenceAdapter: ReferenceAdapter[AnyRef] = identity(_)
 
-      /** Support for all bytes as values. */
-      implicit val bytes: ValueSupport[Byte] = java.lang.Byte.valueOf
+      /** Support for all booleans. */
+      implicit val booleanAdapter: ReferenceAdapter[Boolean] = java.lang.Boolean.valueOf
 
-      /** Support for all shorts as values. */
-      implicit val shorts: ValueSupport[Short] = java.lang.Short.valueOf
+      /** Support for all bytes. */
+      implicit val byteAdapter: ReferenceAdapter[Byte] = java.lang.Byte.valueOf
 
-      /** Support for all integers as values. */
-      implicit val ints: ValueSupport[Int] = java.lang.Integer.valueOf
+      /** Support for all shorts. */
+      implicit val shortAdapter: ReferenceAdapter[Short] = java.lang.Short.valueOf
 
-      /** Support for all longs as values. */
-      implicit val longs: ValueSupport[Long] = java.lang.Long.valueOf
+      /** Support for all integers. */
+      implicit val integerAdapter: ReferenceAdapter[Int] = java.lang.Integer.valueOf
 
-      /** Support for all floats as values. */
-      implicit val floats: ValueSupport[Float] = java.lang.Float.valueOf
+      /** Support for all longs. */
+      implicit val longAdapter: ReferenceAdapter[Long] = java.lang.Long.valueOf
 
-      /** Support for all doubles as values. */
-      implicit val doubles: ValueSupport[Double] = java.lang.Double.valueOf
+      /** Support for all floats. */
+      implicit val floatAdapter: ReferenceAdapter[Float] = java.lang.Float.valueOf
 
-      /** Support for all characters as values. */
-      implicit val chars: ValueSupport[Char] = java.lang.Character.valueOf
+      /** Support for all doubles. */
+      implicit val doubleAdapter: ReferenceAdapter[Double] = java.lang.Double.valueOf
 
-      /** Support for all references as values. */
-      implicit val references: ValueSupport[AnyRef] = identity(_)
-
-      /**
-       * Returns the implicit value support for the specified type.
-       *
-       * @tparam T The type to return the implicit value support for.
-       * @return The implicit value support for the specified type.
-       */
-      def apply[T: ValueSupport](): ValueSupport[T] = implicitly[ValueSupport[T]]
+      /** Support for all characters. */
+      implicit val charAdapter: ReferenceAdapter[Char] = java.lang.Character.valueOf
 
       /**
-       * Converts the specified value into a reference.
+       * Returns the implicit reference adapter type class for the specified type.
        *
-       * @tparam T The type of value to convert into a reference.
-       * @param value The value to convert into a reference.
-       * @return The specified value converted into a reference.
+       * @tparam T The type to return the implicit reference adapter type class for.
+       * @return The implicit reference adapter type class for the specified type.
        */
-      def apply[T: ValueSupport](value: T): AnyRef = apply[T]().apply(value)
+      def apply[T: ReferenceAdapter](): ReferenceAdapter[T] = implicitly[ReferenceAdapter[T]]
+
+      /**
+       * Converts the specified value into a reference using the implicit reference adapter type class.
+       *
+       * @tparam T The type of value to convert into a reference using the implicit reference adapter type class.
+       * @param value The value to convert into a reference using the implicit reference adapter type class.
+       * @return The specified value converted into a reference using the implicit reference adapter type class.
+       */
+      def apply[T: ReferenceAdapter](value: T): AnyRef = ReferenceAdapter[T]().apply(value)
 
     }
 
     /**
-     * A type class converts a cause of the underlying type into a throwable.
+     * A type class converts an instance of the underlying type into a throwable.
      *
      * @tparam T The underlying type to convert into a throwable.
      */
-    sealed trait CauseSupport[-T] extends (T => Throwable)
+    trait ThrowableAdapter[-T] extends (T => Throwable)
 
     /**
-     * Common cause adapter implementations.
+     * The supported throwable adapter implementations.
      */
-    object CauseSupport {
+    object ThrowableAdapter {
 
-      /** Support for all throwables as causes. */
-      implicit val throwableSupport: CauseSupport[Throwable] = new CauseSupport[Throwable] {
-        override def apply(thrown: Throwable) = thrown
-      }
+      /** Support for all throwables. */
+      implicit val throwableAdapter: ThrowableAdapter[Throwable] = identity(_)
 
-      /** Support for all throwable causes as causes. */
-      implicit val throwableCauseSupport: CauseSupport[Cause[Throwable]] = new CauseSupport[Cause[Throwable]] {
-        override def apply(cause: Cause[Throwable]) = cause.squash
-      }
+      /** Support for all throwable causes. */
+      implicit val throwableCauseAdapter: ThrowableAdapter[Cause[Throwable]] = _.squash
 
       /**
-       * Returns the cause support type class for the specified type.
+       * Returns the implicit throwable adapter type class for the specified type.
        *
-       * @tparam T The type to return the cause support type class for.
-       * @return The cause support type class for the specified type.
+       * @tparam T The type to return the implicit throwable adapter type class for.
+       * @return The implicit throwable adapter type class for the specified type.
        */
-      def apply[T: CauseSupport](): CauseSupport[T] = implicitly[CauseSupport[T]]
+      def apply[T: ThrowableAdapter](): ThrowableAdapter[T] = implicitly[ThrowableAdapter[T]]
 
       /**
-       * Converts the specified cause into a throwable.
+       * Converts the specified cause into a throwable using the implicit throwable adapter type class.
        *
-       * @tparam T The type of cause to convert into a throwable.
-       * @param cause The cause to convert into a throwable.
-       * @return The specified cause converted into a throwable.
+       * @tparam T The type of cause to convert into a throwable using the implicit throwable adapter type class.
+       * @param cause The cause to convert into a throwable using the implicit throwable adapter type class.
+       * @return The specified cause converted into a throwable using the implicit throwable adapter type class.
        */
-      def apply[T: CauseSupport](cause: T): Throwable = apply[T]().apply(cause)
+      def apply[T: ThrowableAdapter](cause: T): Throwable = ThrowableAdapter[T]().apply(cause)
 
     }
 
