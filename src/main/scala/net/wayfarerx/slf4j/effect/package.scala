@@ -26,7 +26,7 @@ import zio.console.Console
 package object effect {
 
   /** The ZIO runtime to use in SLF4J-effect. */
-  private[effect] implicit lazy val slf4jEffectRuntime: Runtime[Blocking with Clock with Console] =
-    new DefaultRuntime {}
+  private[effect] lazy val slf4jEffectRuntime: Runtime[Blocking with Clock with Console] =
+    new DefaultRuntime {} // FIXME
 
 }

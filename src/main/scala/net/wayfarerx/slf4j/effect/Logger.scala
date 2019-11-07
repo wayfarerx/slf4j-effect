@@ -17,12 +17,13 @@ package net.wayfarerx.slf4j.effect
 
 import language.{higherKinds, implicitConversions}
 
+import cats.Monad
 import cats.implicits._
 import cats.effect.{Async, Effect}
 
 import org.slf4j
 
-import zio.{Cause, RIO, Task, UIO, URIO}
+import zio.{Cause, RIO, Runtime, Task, UIO, URIO}
 import zio.clock.Clock
 import zio.console.Console
 import zio.interop.catz._
@@ -41,14 +42,14 @@ trait Logger[F[_]] {
   //
 
   /**
-   * Evaluates to true if the TRACE logging level is enabled.
+   * Returns true if the TRACE logging level is enabled.
    *
    * @return True if the TRACE logging level is enabled.
    */
   @inline final def traceEnabled(): F[Boolean] = enabled(Level.Trace)
 
   /**
-   * Evaluates to true if the TRACE logging level is enabled with the specified marker.
+   * Returns true if the TRACE logging level is enabled with the specified marker.
    *
    * @param marker The marker to check the status of.
    * @return True if the TRACE logging level is enabled with the specified marker.
@@ -56,7 +57,7 @@ trait Logger[F[_]] {
   @inline final def traceEnabled(marker: Marker): F[Boolean] = enabled(Level.Trace, marker)
 
   /**
-   * Evaluates to true if the TRACE logging level is enabled with the specified optional marker.
+   * Returns true if the TRACE logging level is enabled with the specified optional marker.
    *
    * @param marker The optional marker to check the status of.
    * @return True if the TRACE logging level is enabled with the specified optional marker.
@@ -216,7 +217,7 @@ trait Logger[F[_]] {
   //
 
   /**
-   * Evaluates to true if the specified logging level is enabled.
+   * Returns true if the specified logging level is enabled.
    *
    * @param level The logging level to check the status of.
    * @return True if the specified logging level is enabled.
@@ -224,7 +225,7 @@ trait Logger[F[_]] {
   def enabled(level: Level): F[Boolean]
 
   /**
-   * Evaluates to true if the specified logging level is enabled with the supplied marker.
+   * Returns true if the specified logging level is enabled with the supplied marker.
    *
    * @param level  The logging level to check the status of.
    * @param marker The marker to check the status of.
@@ -233,13 +234,13 @@ trait Logger[F[_]] {
   def enabled(level: Level, marker: Marker): F[Boolean]
 
   /**
-   * Evaluates to true if the specified logging level is enabled with the supplied optional marker.
+   * Returns true if the specified logging level is enabled with the supplied optional marker.
    *
    * @param level  The logging level to check the status of.
    * @param marker The optional marker to check the status of.
    * @return True if the specified logging level is enabled with the supplied optional marker.
    */
-  @inline final def enabled(level: Level, marker: Option[Marker]): F[Boolean] =
+  final def enabled(level: Level, marker: Option[Marker]): F[Boolean] =
     marker map (enabled(level, _)) getOrElse enabled(level)
 
   /**
@@ -258,7 +259,7 @@ trait Logger[F[_]] {
    * @param message The desired log message.
    * @return The result of submitting a logging entry at the specified level with the supplied message.
    */
-  @inline final def log(level: Level, message: => String): F[Unit] =
+  final def log(level: Level, message: => String): F[Unit] =
     log(level, _ (message))
 
   /**
@@ -270,7 +271,7 @@ trait Logger[F[_]] {
    * @param problem The problem to submit.
    * @return The result of submitting a logging entry at the specified level with the supplied message and problem.
    */
-  @inline final def log[P: Problem](level: Level, message: => String, problem: P): F[Unit] =
+  final def log[P: Problem](level: Level, message: => String, problem: P): F[Unit] =
     log(level, _ (message, problem))
 
   /**
@@ -282,7 +283,7 @@ trait Logger[F[_]] {
    * @param problem The optional problem to submit.
    * @return The result of submitting a logging entry at the specified level with the supplied message and problem.
    */
-  @inline final def log[P: Problem](level: Level, message: => String, problem: Option[P]): F[Unit] =
+  final def log[P: Problem](level: Level, message: => String, problem: Option[P]): F[Unit] =
     problem map (log(level, message, _)) getOrElse log(level, message)
 
 }
@@ -290,93 +291,157 @@ trait Logger[F[_]] {
 /**
  * The global SLF4J logger service and definitions that support the `Logger` type.
  */
-object Logger extends Logger[URIO[Logger[UIO], *]] {
-
-  /** A logging event that can be submitted to SLF4J. */
-  type Event = (Builder, String, Option[Throwable])
+object Logger {
 
   /** A logging entry that builds a logging event. */
   type Entry = Builder => Event
 
-  /* Return true if the specified logging level is enabled on the environment's logger. */
-  override def enabled(level: Level): URIO[Logger[UIO], Boolean] =
-    URIO.accessM[Logger[UIO]](_.enabled(level))
+  /** The environment required to submit logging events. */
+  type Environment = Clock with Console
 
-  /* Return true if the specified logging level is enabled with the supplied marker on the environment's logger. */
-  override def enabled(level: Level, marker: Marker): URIO[Logger[UIO], Boolean] =
-    URIO.accessM[Logger[UIO]](_.enabled(level, marker))
-
-  /* Submit a logging event at the specified level to the environment's logger using the supplied event builder. */
-  override def log(level: Level, f: Builder => Event): URIO[Logger[UIO], Unit] =
-    URIO.accessM[Logger[UIO]](_.log(level, f))
+  /** A logging event that can be submitted to SLF4J. */
+  type Event = (Builder, String, Option[Throwable])
 
   /**
-   * An implementation of the logger API using any effect.
+   * Creates a ZIO logger that wraps the specified SLF4J logger.
    *
-   * @tparam F The type of effect that this logger implementation uses.
-   * @param slf4jLogger The underlying SLF4J logger to use.
+   * @param slf4jLogger The SLF4J logger to wrap.
+   * @return A ZIO logger that wraps the specified SLF4J logger.
    */
-  case class Service[F[_] : Async](slf4jLogger: slf4j.Logger) extends Logger[F] {
+  def apply(slf4jLogger: slf4j.Logger): Service[URIO[Environment, *]] = {
+    val _slf4jLogger = slf4jLogger
+    new Service[URIO[Environment, *]] {
 
-    /** Access to the implicit effect support. */
-    @inline private def effect: Async[F] = implicitly[Async[F]]
+      final override def monad = implicitly[Monad[URIO[Environment, *]]]
+
+      final override def slf4jLogger = _slf4jLogger
+
+      final override protected def lift[A](action: URIO[Environment, A]) = action
+
+    }
+  }
+
+  /**
+   * Creates a ZIO logger that wraps the specified SLF4J logger with the supplied environment.
+   *
+   * @param slf4jLogger The SLF4J logger to wrap.
+   * @param env The environment to execute SLF4J operations in.
+   * @return A ZIO logger that wraps the specified SLF4J logger with the supplied environment.
+   */
+  def apply(slf4jLogger: slf4j.Logger, env: Environment): Service[UIO] = {
+    val _slf4jLogger = slf4jLogger
+    new Service[UIO] {
+
+      final override def monad = implicitly[Monad[UIO]]
+
+      final override def slf4jLogger = _slf4jLogger
+
+      final override protected def lift[A](action: URIO[Environment, A]) = action provide env
+
+    }
+  }
+
+  /**
+   * Creates a cats-effect logger that wraps the specified SLF4J logger.
+   *
+   * @tparam F The type of effect that the logger will use.
+   * @param slf4jLogger The SLF4J logger to wrap.
+   * @param runtime     The optional ZIO runtime to use.
+   * @return A cats-effect logger that wraps the specified SLF4J logger.
+   */
+  def using[F[_] : Async](slf4jLogger: slf4j.Logger, runtime: Runtime[Environment] = slf4jEffectRuntime): Service[F] = {
+    val _slf4jLogger = slf4jLogger
+    implicit val _runtime: Runtime[Environment] = runtime
+    val rio = implicitly[Effect[RIO[Environment, *]]]
+    new Service[F] {
+
+      final override def monad = implicitly[Async[F]]
+
+      final override def slf4jLogger = _slf4jLogger
+
+      final override protected def lift[A](action: URIO[Environment, A]) = monad.liftIO(rio.toIO(action))
+
+    }
+  }
+
+  /**
+   * Base class for monadic `Logger` implementations on top of the SLF4J API.
+   *
+   * @tparam F The type of effect that this logger uses.
+   */
+  trait Service[F[_]] extends Logger[F] {
+
+    /** The monad that describes the effect type. */
+    implicit def monad: Monad[F]
+
+    /** The underlying SLF4J logger to use. */
+    def slf4jLogger: slf4j.Logger
 
     /* Evaluate to true if the specified logging level is enabled. */
-    override def enabled(level: Level): F[Boolean] = level match {
-      case Level.Trace => effect delay slf4jLogger.isTraceEnabled
-      case Level.Debug => effect delay slf4jLogger.isDebugEnabled
-      case Level.Info => effect delay slf4jLogger.isInfoEnabled
-      case Level.Warn => effect delay slf4jLogger.isWarnEnabled
-      case Level.Error => effect delay slf4jLogger.isErrorEnabled
+    final override def enabled(level: Level): F[Boolean] = monad.pure {
+      level match {
+        case Level.Trace => slf4jLogger.isTraceEnabled
+        case Level.Debug => slf4jLogger.isDebugEnabled
+        case Level.Info => slf4jLogger.isInfoEnabled
+        case Level.Warn => slf4jLogger.isWarnEnabled
+        case Level.Error => slf4jLogger.isErrorEnabled
+      }
     }
 
     /* Evaluate to true if the specified logging level is enabled with the supplied marker. */
-    override def enabled(level: Level, marker: Marker): F[Boolean] = level match {
-      case Level.Trace => effect delay slf4jLogger.isTraceEnabled(marker.slf4jMarker)
-      case Level.Debug => effect delay slf4jLogger.isDebugEnabled(marker.slf4jMarker)
-      case Level.Info => effect delay slf4jLogger.isInfoEnabled(marker.slf4jMarker)
-      case Level.Warn => effect delay slf4jLogger.isWarnEnabled(marker.slf4jMarker)
-      case Level.Error => effect delay slf4jLogger.isErrorEnabled(marker.slf4jMarker)
+    final override def enabled(level: Level, marker: Marker): F[Boolean] = monad.pure {
+      level match {
+        case Level.Trace => slf4jLogger.isTraceEnabled(marker.slf4jMarker)
+        case Level.Debug => slf4jLogger.isDebugEnabled(marker.slf4jMarker)
+        case Level.Info => slf4jLogger.isInfoEnabled(marker.slf4jMarker)
+        case Level.Warn => slf4jLogger.isWarnEnabled(marker.slf4jMarker)
+        case Level.Error => slf4jLogger.isErrorEnabled(marker.slf4jMarker)
+      }
     }
 
-    /* Submit a logging entry at the specified level.. */
-    override def log(level: Level, entry: Entry): F[Unit] = for {
+    /* Submit a logging entry at the specified level. */
+    final override def log(level: Level, entry: Entry): F[Unit] = for {
       continue <- enabled(level)
-      _ <- if (!continue) effect.delay(()) else {
-        effect liftIO {
-          implicitly[Effect[RIO[Clock with Console, *]]] toIO {
-            val (builder, message, problem) = entry(Builder())
-            Task {
-              val result = builder.keyValuePairs.foldLeft {
-                builder.markers.foldLeft {
-                  level match {
-                    case Level.Trace => slf4jLogger.atTrace()
-                    case Level.Debug => slf4jLogger.atDebug()
-                    case Level.Info => slf4jLogger.atInfo()
-                    case Level.Warn => slf4jLogger.atWarn()
-                    case Level.Error => slf4jLogger.atError()
-                  }
-                }(_ addMarker _.slf4jMarker)
-              }((b, kv) => b.addKeyValue(kv._1, kv._2))
-              problem map result.setCause getOrElse result log message
-            }.foldCauseM(
-              failure => Recover(level.toString())(
-                "Failed while submitting SLF4J log entry:",
-                4 -> (
-                  builder.markers.toSeq.map(m => s"@$m") ++
-                    builder.keyValuePairs.toSeq.map(e => s"${e._1}=${e._2}") :+
-                    message mkString " "
-                  ),
-                4 -> problem,
-                2 -> "SLF4J log entry submission encountered failure:",
-                4 -> failure
+      _ <- if (!continue) monad.unit else lift {
+        val (builder, message, problem) = entry(Builder())
+        Task {
+          val result = builder.keyValuePairs.foldLeft {
+            builder.markers.foldLeft {
+              level match {
+                case Level.Trace => slf4jLogger.atTrace()
+                case Level.Debug => slf4jLogger.atDebug()
+                case Level.Info => slf4jLogger.atInfo()
+                case Level.Warn => slf4jLogger.atWarn()
+                case Level.Error => slf4jLogger.atError()
+              }
+            }(_ addMarker _.slf4jMarker)
+          }((b, kv) => b.addKeyValue(kv._1, kv._2))
+          problem map result.setCause getOrElse result log message
+        }.foldCauseM(
+          failure => Recover(level.toString())(
+            "Failed while submitting SLF4J log entry:",
+            4 -> (
+              builder.markers.toSeq.map(m => s"@$m") ++
+                builder.keyValuePairs.toSeq.map(e => s"${e._1}=${e._2}") :+
+                message mkString " "
               ),
-              _ => UIO.unit
-            )
-          }
-        }
+            4 -> problem,
+            2 -> "SLF4J log entry submission encountered failure:",
+            4 -> failure
+          ),
+          _ => UIO.unit
+        )
       }
     } yield ()
+
+    /**
+     * Lift an environmentally-dependant ZIO effect into the underlying monadic type.
+     *
+     * @tparam A The type of result produced by the ZIO effect.
+     * @param action The ZIO action to lift into the monadic type.
+     * @return The specified ZIO effect lifted into the underlying monadic type.
+     */
+    protected def lift[A](action: URIO[Environment, A]): F[A]
 
   }
 
