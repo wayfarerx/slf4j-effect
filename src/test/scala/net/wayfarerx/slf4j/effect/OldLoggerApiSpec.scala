@@ -26,9 +26,9 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 /**
  * Test suite for the logger API operations.
  */
-final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
+final class OldLoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
-  private val mockLogger = mock[LoggerApi.Service[Any]]
+  private val mockLogger = mock[OldLoggerApi.Service[Any]]
 
   private val mockSlf4jMarker = mock[slf4j.Marker]
 
@@ -39,31 +39,31 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
   "LoggerApi" should "filter and log TRACE events" in {
     (mockLogger.isEnabled(_: Level)).expects(Level.Trace).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isTraceEnabled) shouldBe true
-    mockLogger.trace shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace)
+    mockLogger.trace shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Trace)
   }
 
   it should "filter and log DEBUG events" in {
     (mockLogger.isEnabled(_: Level)).expects(Level.Debug).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isDebugEnabled) shouldBe true
-    mockLogger.debug shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Debug)
+    mockLogger.debug shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Debug)
   }
 
   it should "filter and log INFO events" in {
     (mockLogger.isEnabled(_: Level)).expects(Level.Info).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isInfoEnabled) shouldBe true
-    mockLogger.info shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Info)
+    mockLogger.info shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Info)
   }
 
   it should "filter and log WARN events" in {
     (mockLogger.isEnabled(_: Level)).expects(Level.Warn).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isWarnEnabled) shouldBe true
-    mockLogger.warn shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Warn)
+    mockLogger.warn shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Warn)
   }
 
   it should "filter and log ERROR events" in {
     (mockLogger.isEnabled(_: Level)).expects(Level.Error).once().returns(UIO(true))
     runtime.unsafeRun(mockLogger.isErrorEnabled) shouldBe true
-    mockLogger.error shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Error)
+    mockLogger.error shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Error)
   }
 
   "LoggerApi.EventBuilder" should "support event metadata" in {
@@ -79,7 +79,7 @@ final class LoggerApiSpec extends FlatSpec with Matchers with OneInstancePerTest
       "double" -> 6.0,
       "char" -> 'x',
       "string" -> "str"
-    ) shouldBe LoggerApi.EventBuilder[Any](mockLogger, Level.Trace, markers = Set(marker), keyValuePairs = Map(
+    ) shouldBe OldLoggerApi.EventBuilder[Any](mockLogger, Level.Trace, markers = Set(marker), keyValuePairs = Map(
       "boolean" -> java.lang.Boolean.TRUE,
       "byte" -> java.lang.Byte.valueOf(1.toByte),
       "short" -> java.lang.Short.valueOf(2.toShort),

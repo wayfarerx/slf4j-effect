@@ -19,7 +19,7 @@ import language.{higherKinds, implicitConversions}
 
 import cats.Monad
 import cats.implicits._
-import cats.effect.{Async, Effect}
+import cats.effect.{Effect, LiftIO}
 
 import org.slf4j
 
@@ -46,7 +46,8 @@ trait Logger[F[_]] {
    *
    * @return True if the TRACE logging level is enabled.
    */
-  @inline final def traceEnabled(): F[Boolean] = enabled(Level.Trace)
+  @inline final def traceEnabled(): F[Boolean] =
+    enabled(Level.Trace)
 
   /**
    * Returns true if the TRACE logging level is enabled with the specified marker.
@@ -54,7 +55,8 @@ trait Logger[F[_]] {
    * @param marker The marker to check the status of.
    * @return True if the TRACE logging level is enabled with the specified marker.
    */
-  @inline final def traceEnabled(marker: Marker): F[Boolean] = enabled(Level.Trace, marker)
+  @inline final def traceEnabled(marker: Marker): F[Boolean] =
+    enabled(Level.Trace, marker)
 
   /**
    * Returns true if the TRACE logging level is enabled with the specified optional marker.
@@ -62,155 +64,328 @@ trait Logger[F[_]] {
    * @param marker The optional marker to check the status of.
    * @return True if the TRACE logging level is enabled with the specified optional marker.
    */
-  @inline final def traceEnabled(marker: Option[Marker]): F[Boolean] = enabled(Level.Trace, marker)
+  @inline final def traceEnabled(marker: Option[Marker]): F[Boolean] =
+    enabled(Level.Trace, marker)
 
   /**
-   * Submits a logging entry at the TRACE level.
+   * Submits a log entry at the TRACE level.
    *
    * @param entry A function that constructs a logging event from a logging event builder.
-   * @return The result of submitting a logging entry at the TRACE level.
+   * @return The result of submitting a log entry at the TRACE level.
    */
-  @inline final def trace(entry: Entry): F[Unit] = log(Level.Trace, entry)
+  @inline final def trace(entry: Entry): F[Unit] =
+    log(Level.Trace, entry)
 
   /**
-   * Submits a logging event at the TRACE level with the supplied message.
+   * Submits a log entry at the TRACE level with the supplied message.
    *
    * @param message The desired log message.
-   * @return A logging event at the TRACE level with the supplied message.
+   * @return A log entry at the TRACE level with the supplied message.
    */
-  @inline final def trace(message: => String): F[Unit] = log(Level.Trace, message)
+  @inline final def trace(message: => String): F[Unit] =
+    log(Level.Trace, message)
+
+  /**
+   * Submits a log entry at the TRACE level with the supplied message and problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The problem to submit.
+   * @return The result of submitting a log entry at the TRACE level with the supplied message and problem.
+   */
+  @inline final def trace[P: Problem](message: => String, problem: P): F[Unit] =
+    log(Level.Trace, message, problem)
+
+  /**
+   * Submits a log entry at the TRACE level with the supplied message and optional problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The optional problem to submit.
+   * @return The result of submitting a log entry at the TRACE level with the supplied message and problem.
+   */
+  @inline final def trace[P: Problem](message: => String, problem: Option[P]): F[Unit] =
+    log(Level.Trace, message, problem)
 
   //
-  // Other APIs.
+  // Debug-level API.
   //
 
   /**
-   * Returns true if the debug logging level is enabled.
+   * Returns true if the DEBUG logging level is enabled.
    *
-   * @return True if the debug logging level is enabled.
+   * @return True if the DEBUG logging level is enabled.
    */
-  @inline final def debugEnabled(): F[Boolean] = enabled(Level.Debug)
+  @inline final def debugEnabled(): F[Boolean] =
+    enabled(Level.Debug)
 
   /**
-   * Returns true if the debug logging level is enabled with the supplied marker.
+   * Returns true if the DEBUG logging level is enabled with the specified marker.
    *
    * @param marker The marker to check the status of.
-   * @return True if the debug logging level is enabled with the supplied marker.
+   * @return True if the DEBUG logging level is enabled with the specified marker.
    */
-  @inline final def debugEnabled(marker: Marker): F[Boolean] = enabled(Level.Debug, marker)
+  @inline final def debugEnabled(marker: Marker): F[Boolean] =
+    enabled(Level.Debug, marker)
 
   /**
-   * Returns true if the info logging level is enabled.
+   * Returns true if the DEBUG logging level is enabled with the specified optional marker.
    *
-   * @return True if the info logging level is enabled.
+   * @param marker The optional marker to check the status of.
+   * @return True if the DEBUG logging level is enabled with the specified optional marker.
    */
-  @inline final def infoEnabled(): F[Boolean] = enabled(Level.Info)
+  @inline final def debugEnabled(marker: Option[Marker]): F[Boolean] =
+    enabled(Level.Debug, marker)
 
   /**
-   * Returns true if the info logging level is enabled with the supplied marker.
+   * Submits a log entry at the DEBUG level.
    *
-   * @param marker The marker to check the status of.
-   * @return True if the info logging level is enabled with the supplied marker.
+   * @param entry A function that constructs a logging event from a logging event builder.
+   * @return The result of submitting a log entry at the DEBUG level.
    */
-  @inline final def infoEnabled(marker: Marker): F[Boolean] = enabled(Level.Info, marker)
+  @inline final def debug(entry: Entry): F[Unit] =
+    log(Level.Debug, entry)
 
   /**
-   * Returns true if the warn logging level is enabled.
+   * Submits a log entry at the DEBUG level with the supplied message.
    *
-   * @return True if the warn logging level is enabled.
-   */
-  @inline final def warnEnabled(): F[Boolean] = enabled(Level.Warn)
-
-  /**
-   * Returns true if the warn logging level is enabled with the supplied marker.
-   *
-   * @param marker The marker to check the status of.
-   * @return True if the warn logging level is enabled with the supplied marker.
-   */
-  @inline final def warnEnabled(marker: Marker): F[Boolean] = enabled(Level.Warn, marker)
-
-  /**
-   * Returns true if the error logging level is enabled.
-   *
-   * @return True if the error logging level is enabled.
-   */
-  @inline final def errorEnabled(): F[Boolean] = enabled(Level.Error)
-
-  /**
-   * Returns true if the error logging level is enabled with the supplied marker.
-   *
-   * @param marker The marker to check the status of.
-   * @return True if the error logging level is enabled with the supplied marker.
-   */
-  @inline final def errorEnabled(marker: Marker): F[Boolean] = enabled(Level.Error, marker)
-
-  /**
-   * Submits a logging event at the debug level using the specified logging event builder.
-   *
-   * @param f A function that constructs a logging event.
-   * @return A logging event at the debug level using the specified logging event builder.
-   */
-  @inline final def debug(f: Builder => Event): F[Unit] = log(Level.Debug, f)
-
-  /**
-   * Submits a logging event at the info level using the specified logging event builder.
-   *
-   * @param f A function that constructs a logging event.
-   * @return A logging event at the info level using the specified logging event builder.
-   */
-  @inline final def info(f: Builder => Event): F[Unit] = log(Level.Info, f)
-
-  /**
-   * Submits a logging event at the warn level using the specified logging event builder.
-   *
-   * @param f A function that constructs a logging event.
-   * @return A logging event at the warn level using the specified logging event builder.
-   */
-  @inline final def warn(f: Builder => Event): F[Unit] = log(Level.Warn, f)
-
-  /**
-   * Submits a logging event at the error level using the specified logging event builder.
-   *
-   * @param f A function that constructs a logging event.
-   * @return A logging event at the error level using the specified logging event builder.
-   */
-  @inline final def error(f: Builder => Event): F[Unit] = log(Level.Error, f)
-
-  /**
-   * Submits a logging event at the warn level with the supplied message.
-   *
-   * @param message A function that returns the log message.
-   * @return A logging event at the debug level with the supplied message.
+   * @param message The desired log message.
+   * @return A log entry at the DEBUG level with the supplied message.
    */
   @inline final def debug(message: => String): F[Unit] =
-    log(Level.Warn, _ (message))
+    log(Level.Debug, message)
 
   /**
-   * Submits a logging event at the info level with the supplied message.
+   * Submits a log entry at the DEBUG level with the supplied message and problem.
    *
-   * @param message A function that returns the log message.
-   * @return A logging event at the info level with the supplied message.
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The problem to submit.
+   * @return The result of submitting a log entry at the DEBUG level with the supplied message and problem.
+   */
+  @inline final def debug[P: Problem](message: => String, problem: P): F[Unit] =
+    log(Level.Debug, message, problem)
+
+  /**
+   * Submits a log entry at the DEBUG level with the supplied message and optional problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The optional problem to submit.
+   * @return The result of submitting a log entry at the DEBUG level with the supplied message and problem.
+   */
+  @inline final def debug[P: Problem](message: => String, problem: Option[P]): F[Unit] =
+    log(Level.Debug, message, problem)
+
+  //
+  // Info-level API.
+  //
+
+  /**
+   * Returns true if the INFO logging level is enabled.
+   *
+   * @return True if the INFO logging level is enabled.
+   */
+  @inline final def infoEnabled(): F[Boolean] =
+    enabled(Level.Info)
+
+  /**
+   * Returns true if the INFO logging level is enabled with the specified marker.
+   *
+   * @param marker The marker to check the status of.
+   * @return True if the INFO logging level is enabled with the specified marker.
+   */
+  @inline final def infoEnabled(marker: Marker): F[Boolean] =
+    enabled(Level.Info, marker)
+
+  /**
+   * Returns true if the INFO logging level is enabled with the specified optional marker.
+   *
+   * @param marker The optional marker to check the status of.
+   * @return True if the INFO logging level is enabled with the specified optional marker.
+   */
+  @inline final def infoEnabled(marker: Option[Marker]): F[Boolean] =
+    enabled(Level.Info, marker)
+
+  /**
+   * Submits a log entry at the INFO level.
+   *
+   * @param entry A function that constructs a logging event from a logging event builder.
+   * @return The result of submitting a log entry at the INFO level.
+   */
+  @inline final def info(entry: Entry): F[Unit] =
+    log(Level.Info, entry)
+
+  /**
+   * Submits a log entry at the INFO level with the supplied message.
+   *
+   * @param message The desired log message.
+   * @return A log entry at the INFO level with the supplied message.
    */
   @inline final def info(message: => String): F[Unit] =
-    log(Level.Info, _ (message))
+    log(Level.Info, message)
 
   /**
-   * Submits a logging event at the specified level with the supplied message.
+   * Submits a log entry at the INFO level with the supplied message and problem.
    *
-   * @param message A function that returns the log message.
-   * @return A logging event at the warn level with the supplied message.
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The problem to submit.
+   * @return The result of submitting a log entry at the INFO level with the supplied message and problem.
+   */
+  @inline final def info[P: Problem](message: => String, problem: P): F[Unit] =
+    log(Level.Info, message, problem)
+
+  /**
+   * Submits a log entry at the INFO level with the supplied message and optional problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The optional problem to submit.
+   * @return The result of submitting a log entry at the INFO level with the supplied message and problem.
+   */
+  @inline final def info[P: Problem](message: => String, problem: Option[P]): F[Unit] =
+    log(Level.Info, message, problem)
+
+  //
+  // Warn-level API.
+  //
+
+  /**
+   * Returns true if the WARN logging level is enabled.
+   *
+   * @return True if the WARN logging level is enabled.
+   */
+  @inline final def warnEnabled(): F[Boolean] =
+    enabled(Level.Warn)
+
+  /**
+   * Returns true if the WARN logging level is enabled with the specified marker.
+   *
+   * @param marker The marker to check the status of.
+   * @return True if the WARN logging level is enabled with the specified marker.
+   */
+  @inline final def warnEnabled(marker: Marker): F[Boolean] =
+    enabled(Level.Warn, marker)
+
+  /**
+   * Returns true if the WARN logging level is enabled with the specified optional marker.
+   *
+   * @param marker The optional marker to check the status of.
+   * @return True if the WARN logging level is enabled with the specified optional marker.
+   */
+  @inline final def warnEnabled(marker: Option[Marker]): F[Boolean] =
+    enabled(Level.Warn, marker)
+
+  /**
+   * Submits a log entry at the WARN level.
+   *
+   * @param entry A function that constructs a logging event from a logging event builder.
+   * @return The result of submitting a log entry at the WARN level.
+   */
+  @inline final def warn(entry: Entry): F[Unit] =
+    log(Level.Warn, entry)
+
+  /**
+   * Submits a log entry at the WARN level with the supplied message.
+   *
+   * @param message The desired log message.
+   * @return A log entry at the WARN level with the supplied message.
    */
   @inline final def warn(message: => String): F[Unit] =
-    log(Level.Warn, _ (message))
+    log(Level.Warn, message)
 
   /**
-   * Submits a logging event at the specified level with the supplied message.
+   * Submits a log entry at the WARN level with the supplied message and problem.
    *
-   * @param message A function that returns the log message.
-   * @return A logging event at the error level with the supplied message.
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The problem to submit.
+   * @return The result of submitting a log entry at the WARN level with the supplied message and problem.
+   */
+  @inline final def warn[P: Problem](message: => String, problem: P): F[Unit] =
+    log(Level.Warn, message, problem)
+
+  /**
+   * Submits a log entry at the WARN level with the supplied message and optional problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The optional problem to submit.
+   * @return The result of submitting a log entry at the WARN level with the supplied message and problem.
+   */
+  @inline final def warn[P: Problem](message: => String, problem: Option[P]): F[Unit] =
+    log(Level.Warn, message, problem)
+
+  //
+  // Error-level API.
+  //
+
+  /**
+   * Returns true if the ERROR logging level is enabled.
+   *
+   * @return True if the ERROR logging level is enabled.
+   */
+  @inline final def errorEnabled(): F[Boolean] =
+    enabled(Level.Error)
+
+  /**
+   * Returns true if the ERROR logging level is enabled with the specified marker.
+   *
+   * @param marker The marker to check the status of.
+   * @return True if the ERROR logging level is enabled with the specified marker.
+   */
+  @inline final def errorEnabled(marker: Marker): F[Boolean] =
+    enabled(Level.Error, marker)
+
+  /**
+   * Returns true if the ERROR logging level is enabled with the specified optional marker.
+   *
+   * @param marker The optional marker to check the status of.
+   * @return True if the ERROR logging level is enabled with the specified optional marker.
+   */
+  @inline final def errorEnabled(marker: Option[Marker]): F[Boolean] =
+    enabled(Level.Error, marker)
+
+  /**
+   * Submits a log entry at the ERROR level.
+   *
+   * @param entry A function that constructs a logging event from a logging event builder.
+   * @return The result of submitting a log entry at the ERROR level.
+   */
+  @inline final def error(entry: Entry): F[Unit] =
+    log(Level.Error, entry)
+
+  /**
+   * Submits a log entry at the ERROR level with the supplied message.
+   *
+   * @param message The desired log message.
+   * @return A log entry at the ERROR level with the supplied message.
    */
   @inline final def error(message: => String): F[Unit] =
-    log(Level.Error, _ (message))
+    log(Level.Error, message)
+
+  /**
+   * Submits a log entry at the ERROR level with the supplied message and problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The problem to submit.
+   * @return The result of submitting a log entry at the ERROR level with the supplied message and problem.
+   */
+  @inline final def error[P: Problem](message: => String, problem: P): F[Unit] =
+    log(Level.Error, message, problem)
+
+  /**
+   * Submits a log entry at the ERROR level with the supplied message and optional problem.
+   *
+   * @tparam P The type of problem to submit.
+   * @param message The desired log message.
+   * @param problem The optional problem to submit.
+   * @return The result of submitting a log entry at the ERROR level with the supplied message and problem.
+   */
+  @inline final def error[P: Problem](message: => String, problem: Option[P]): F[Unit] =
+    log(Level.Error, message, problem)
 
   //
   // Level-agnostic API.
@@ -244,44 +419,44 @@ trait Logger[F[_]] {
     marker map (enabled(level, _)) getOrElse enabled(level)
 
   /**
-   * Submits a logging entry at the specified level.
+   * Submits a log entry at the specified level.
    *
-   * @param level The level to log the event at.
-   * @param entry A function that constructs a logging event from a logging event builder.
-   * @return The result of submitting a logging entry at the specified level.
+   * @param level The level to log the entry at.
+   * @param entry log entry to submit.
+   * @return The result of submitting a log entry at the specified level.
    */
   def log(level: Level, entry: Entry): F[Unit]
 
   /**
-   * Submits a logging event at the specified level with the supplied message.
+   * Submits a log entry at the specified level with the supplied message.
    *
    * @param level   The level to log the event at.
    * @param message The desired log message.
-   * @return The result of submitting a logging entry at the specified level with the supplied message.
+   * @return The result of submitting a log entry at the specified level with the supplied message.
    */
   final def log(level: Level, message: => String): F[Unit] =
     log(level, _ (message))
 
   /**
-   * Submits a logging event at the specified level with the supplied message and problem.
+   * Submits a log entry at the specified level with the supplied message and problem.
    *
    * @tparam P The type of problem to submit.
    * @param level   The level to log the event at.
    * @param message The desired log message.
    * @param problem The problem to submit.
-   * @return The result of submitting a logging entry at the specified level with the supplied message and problem.
+   * @return The result of submitting a log entry at the specified level with the supplied message and problem.
    */
   final def log[P: Problem](level: Level, message: => String, problem: P): F[Unit] =
     log(level, _ (message, problem))
 
   /**
-   * Submits a logging event at the specified level with the supplied message and optional problem.
+   * Submits a log entry at the specified level with the supplied message and optional problem.
    *
    * @tparam P The type of problem to submit.
    * @param level   The level to log the event at.
    * @param message The desired log message.
    * @param problem The optional problem to submit.
-   * @return The result of submitting a logging entry at the specified level with the supplied message and problem.
+   * @return The result of submitting a log entry at the specified level with the supplied message and problem.
    */
   final def log[P: Problem](level: Level, message: => String, problem: Option[P]): F[Unit] =
     problem map (log(level, message, _)) getOrElse log(level, message)
@@ -289,7 +464,7 @@ trait Logger[F[_]] {
 }
 
 /**
- * The global SLF4J logger service and definitions that support the `Logger` type.
+ * The global SLF4J logger constructors and related definitions.
  */
 object Logger {
 
@@ -302,17 +477,23 @@ object Logger {
   /** A logging event that can be submitted to SLF4J. */
   type Event = (Builder, String, Option[Throwable])
 
+  /** The monad for environment-dependent ZIO effects. */
+  private lazy val urioMonad = implicitly[Monad[URIO[Environment, ?]]]
+
+  /** The monad for stand alone ZIO effects. */
+  private lazy val uioMonad = implicitly[Monad[UIO]]
+
   /**
    * Creates a ZIO logger that wraps the specified SLF4J logger.
    *
    * @param slf4jLogger The SLF4J logger to wrap.
    * @return A ZIO logger that wraps the specified SLF4J logger.
    */
-  def apply(slf4jLogger: slf4j.Logger): Service[URIO[Environment, *]] = {
+  def apply(slf4jLogger: slf4j.Logger): Service[URIO[Environment, ?]] = {
     val _slf4jLogger = slf4jLogger
-    new Service[URIO[Environment, *]] {
+    new Service[URIO[Environment, ?]] {
 
-      final override def monad = implicitly[Monad[URIO[Environment, *]]]
+      final override def monad = urioMonad
 
       final override def slf4jLogger = _slf4jLogger
 
@@ -325,14 +506,14 @@ object Logger {
    * Creates a ZIO logger that wraps the specified SLF4J logger with the supplied environment.
    *
    * @param slf4jLogger The SLF4J logger to wrap.
-   * @param env The environment to execute SLF4J operations in.
+   * @param env         The environment to execute SLF4J operations in.
    * @return A ZIO logger that wraps the specified SLF4J logger with the supplied environment.
    */
   def apply(slf4jLogger: slf4j.Logger, env: Environment): Service[UIO] = {
     val _slf4jLogger = slf4jLogger
     new Service[UIO] {
 
-      final override def monad = implicitly[Monad[UIO]]
+      final override def monad = uioMonad
 
       final override def slf4jLogger = _slf4jLogger
 
@@ -349,17 +530,21 @@ object Logger {
    * @param runtime     The optional ZIO runtime to use.
    * @return A cats-effect logger that wraps the specified SLF4J logger.
    */
-  def using[F[_] : Async](slf4jLogger: slf4j.Logger, runtime: Runtime[Environment] = slf4jEffectRuntime): Service[F] = {
+  def using[F[_] : Monad : LiftIO](
+    slf4jLogger: slf4j.Logger,
+    runtime: Runtime[Environment] = slf4jEffectRuntime
+  ): Service[F] = {
     val _slf4jLogger = slf4jLogger
     implicit val _runtime: Runtime[Environment] = runtime
-    val rio = implicitly[Effect[RIO[Environment, *]]]
+    val rioEffect = implicitly[Effect[RIO[Environment, ?]]]
     new Service[F] {
 
-      final override def monad = implicitly[Async[F]]
+      final override def monad = implicitly[Monad[F]]
 
       final override def slf4jLogger = _slf4jLogger
 
-      final override protected def lift[A](action: URIO[Environment, A]) = monad.liftIO(rio.toIO(action))
+      final override protected def lift[A](action: URIO[Environment, A]) =
+        implicitly[LiftIO[F]].liftIO(rioEffect.toIO(action))
 
     }
   }
@@ -459,7 +644,7 @@ object Logger {
      * @param metadata The metadata to append.
      * @return This event builder with the specified metadata appended.
      */
-    def apply(metadata: Metadata[_]*): Builder = metadata.foldLeft(this)((builder, datum) => datum(builder))
+    final def apply(metadata: Metadata[_]*): Builder = metadata.foldLeft(this)((builder, datum) => datum(builder))
 
     /**
      * Submits this event builder with the specified log message.
@@ -467,7 +652,7 @@ object Logger {
      * @param message The log message to submit.
      * @return The result of submitting this event builder with the specified log message.
      */
-    def apply(message: String): Event = (this, message, None)
+    final def apply(message: String): Event = (this, message, None)
 
     /**
      * Submits this event builder with the specified log message and problem.
@@ -477,7 +662,7 @@ object Logger {
      * @param problem The problem to submit.
      * @return The result of submitting this event builder with the specified log message and problem.
      */
-    def apply[P: Problem](message: String, problem: P): Event = (this, message, Some(Problem(problem)))
+    final def apply[P: Problem](message: String, problem: P): Event = (this, message, Some(Problem(problem)))
 
     /**
      * Submits this event builder with the specified message and optional problem.
@@ -487,7 +672,7 @@ object Logger {
      * @param problem The optional problem to submit.
      * @return The result of submitting this event builder with the specified message and optional problem.
      */
-    def apply[P: Problem](message: String, problem: Option[P]): Event = (this, message, problem map Problem[P])
+    final def apply[P: Problem](message: String, problem: Option[P]): Event = (this, message, problem map Problem[P])
 
   }
 
@@ -504,7 +689,7 @@ object Logger {
      * @param builder The builder to apply the underlying metadata to.
      * @return The specified event builder with the underlying metadata applied to it.
      */
-    @inline def apply(builder: Builder): Builder = Adapter(builder, data)
+    final def apply(builder: Builder): Builder = Adapter(builder, data)
 
   }
 
@@ -607,13 +792,12 @@ object Logger {
     /**
      * Applies the supplied metadata to the specified event builder.
      *
-     * @tparam F The type required by the builder.
      * @tparam T The type of data to apply to the builder.
      * @param builder The builder to apply the metadata to.
      * @param data    The metadata to apply to the builder.
      * @return The specified event builder with the supplied metadata applied to it.
      */
-    @inline def apply[F[_], T: Adapter](builder: Builder, data: T): Builder = Adapter[T].apply(builder, data)
+    @inline def apply[T: Adapter](builder: Builder, data: T): Builder = Adapter[T].apply(builder, data)
 
   }
 

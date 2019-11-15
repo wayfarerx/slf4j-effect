@@ -2,7 +2,7 @@ import Dependencies._
 
 resolvers ++= Seq(WayfarerxReleases, WayfarerxSnapshots)
 
-lazy val scala2_12 = "2.12.9"
+lazy val scala2_12 = "2.12.10"
 lazy val scala2_13 = "2.13.0"
 
 scalaVersion in ThisBuild := scala2_12

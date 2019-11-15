@@ -23,9 +23,9 @@ import zio.{Cause, UIO, URIO}
  *
  * @tparam R The environment type to require in results.
  */
-trait LoggerApi[-R] {
+trait OldLoggerApi[-R] {
 
-  import LoggerApi.EventBuilder
+  import OldLoggerApi.EventBuilder
 
   /** The type of result returned by this API. */
   type Result[+A] <: URIO[R, A]
@@ -148,14 +148,14 @@ trait LoggerApi[-R] {
 /**
  * Definitions that support the `LoggerApi` trait.
  */
-object LoggerApi {
+object OldLoggerApi {
 
   /**
    * Base type for logger API implementations with a fixed environment type.
    *
    * @tparam R The environment type to require in results.
    */
-  trait Service[R] extends LoggerApi[R] {
+  trait Service[R] extends OldLoggerApi[R] {
 
     /* Configure the type of result returned by this API. */
     final override type Result[+A] = URIO[R, A]
@@ -172,7 +172,7 @@ object LoggerApi {
    * @param keyValuePairs The key/value pairs to supply when the logging the event.
    */
   case class EventBuilder[-R](
-    loggerApi: LoggerApi[R],
+    loggerApi: OldLoggerApi[R],
     level: Level,
     markers: Set[Marker] = Set(),
     keyValuePairs: Map[String, AnyRef] = Map.empty

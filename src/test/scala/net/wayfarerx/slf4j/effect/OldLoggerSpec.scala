@@ -30,7 +30,7 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 /**
  * Test suite for loggers.
  */
-final class LoggerOldSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
+final class OldLoggerSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
   private val mockSlf4jLogger = mock[Slf4jLogger]
 
@@ -45,56 +45,56 @@ final class LoggerOldSpec extends FlatSpec with Matchers with OneInstancePerTest
   private val thrown = new RuntimeException
 
   "Logger" should "log trace messages" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isTraceEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atTrace()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
-    runtime.unsafeRun(LoggerOld.isTraceEnabled.provide(logger)) shouldBe true
-    runtime.unsafeRun(LoggerOld.trace("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isTraceEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(OldLogger.trace("msg").provide(logger)).shouldBe(())
   }
 
   it should "log debug messages" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isDebugEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atDebug()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.setCause _).expects(thrown).returns(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
-    runtime.unsafeRun(LoggerOld.isDebugEnabled.provide(logger)) shouldBe true
-    runtime.unsafeRun(LoggerOld.debug("msg", thrown).provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isDebugEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(OldLogger.debug("msg", thrown).provide(logger)).shouldBe(())
   }
 
   it should "log info messages" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isInfoEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atInfo()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
-    runtime.unsafeRun(LoggerOld.isInfoEnabled.provide(logger)) shouldBe true
-    runtime.unsafeRun(LoggerOld.info("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isInfoEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(OldLogger.info("msg").provide(logger)).shouldBe(())
   }
 
   it should "log warn messages" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isWarnEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atWarn()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
-    runtime.unsafeRun(LoggerOld.isWarnEnabled.provide(logger)) shouldBe true
-    runtime.unsafeRun(LoggerOld.warn("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isWarnEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(OldLogger.warn("msg").provide(logger)).shouldBe(())
   }
 
   it should "log error messages" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atError()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").returns(()).once()
-    runtime.unsafeRun(LoggerOld.isErrorEnabled.provide(logger)) shouldBe true
-    runtime.unsafeRun(LoggerOld.error("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isErrorEnabled.provide(logger)) shouldBe true
+    runtime.unsafeRun(OldLogger.error("msg").provide(logger)).shouldBe(())
   }
 
   it should "filter out disabled levels" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(false).anyNumberOfTimes()
-    runtime.unsafeRun(LoggerOld.isErrorEnabled.provide(logger)) shouldBe false
-    runtime.unsafeRun(LoggerOld.error("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.isErrorEnabled.provide(logger)) shouldBe false
+    runtime.unsafeRun(OldLogger.error("msg").provide(logger)).shouldBe(())
   }
 
   /*
@@ -110,39 +110,39 @@ final class LoggerOldSpec extends FlatSpec with Matchers with OneInstancePerTest
   */
 
   it should "propagate key/value pairs" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     val mockLoggingEventBuilder = new MockLoggingEventBuilder
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
-    runtime.unsafeRun(LoggerOld.error("key" -> "value")("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.error("key" -> "value")("msg").provide(logger)).shouldBe(())
     mockLoggingEventBuilder.keyValue shouldBe Some("key" -> "value")
     mockLoggingEventBuilder.logged shouldBe Some("msg")
   }
 
   it should "propagate mapped diagnostic contexts" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger).logger)
     val mockLoggingEventBuilder = new MockLoggingEventBuilder
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atError()).expects().returning(mockLoggingEventBuilder).once()
-    runtime.unsafeRun(MDC("key" -> "value")(LoggerOld.error("msg")).provide(logger)).shouldBe(())
+    runtime.unsafeRun(MDC("key" -> "value")(OldLogger.error("msg")).provide(logger)).shouldBe(())
     mockLoggingEventBuilder.mdc shouldBe Some(Map("key" -> "value"))
     mockLoggingEventBuilder.logged shouldBe Some("msg")
   }
 
   it should "recover from logging failures" in {
-    val logger = LoggerOld(LoggerOld.Live(mockSlf4jLogger, console = mockConsole).logger)
+    val logger = OldLogger(OldLogger.Live(mockSlf4jLogger, console = mockConsole).logger)
     (() => mockSlf4jLogger.isErrorEnabled).expects().returning(true).anyNumberOfTimes()
     (() => mockSlf4jLogger.atError()).expects().returning(mockSlf4jLoggingEventBuilder).once()
     (mockSlf4jLoggingEventBuilder.log(_: String)).expects("msg").throws(thrown).once()
     (mockConsole.putStr _).expects(where[String](_.startsWith(s"${Level.Error} "))).returning(UIO.unit).once()
-    runtime.unsafeRun(LoggerOld.error("msg").provide(logger)).shouldBe(())
+    runtime.unsafeRun(OldLogger.error("msg").provide(logger)).shouldBe(())
   }
 
   it should "construct live instances from logger names" in {
-    runtime.unsafeRun(LoggerOld.Live("test")) should not be null
-    runtime.unsafeRun(LoggerOld.Live("test", Blocking.Live.blocking)) should not be null
-    runtime.unsafeRun(LoggerOld.Live("test", console = Console.Live.console)) should not be null
-    runtime.unsafeRun(LoggerOld.Live("test", Blocking.Live.blocking, Console.Live.console)) should not be null
+    runtime.unsafeRun(OldLogger.Live("test")) should not be null
+    runtime.unsafeRun(OldLogger.Live("test", Blocking.Live.blocking)) should not be null
+    runtime.unsafeRun(OldLogger.Live("test", console = Console.Live.console)) should not be null
+    runtime.unsafeRun(OldLogger.Live("test", Blocking.Live.blocking, Console.Live.console)) should not be null
   }
 
   /**

@@ -25,10 +25,10 @@ import org.slf4j.event.{Level => Slf4jLevel}
 sealed abstract class Level(val slf4jLevel: Slf4jLevel) extends Product {
 
   /** Returns the SLF4J logging level integer. */
-  final def toInt: Int = slf4jLevel.toInt
+  @inline final def toInt: Int = slf4jLevel.toInt
 
   /** Returns the SLF4J logging level string. */
-  final override def toString: String = slf4jLevel.toString
+  @inline final override def toString: String = slf4jLevel.toString
 
 }
 

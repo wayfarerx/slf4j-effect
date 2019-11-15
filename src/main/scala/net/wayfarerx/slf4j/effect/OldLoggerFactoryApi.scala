@@ -26,7 +26,7 @@ import scala.reflect.ClassTag
  *
  * @tparam R The environment type to require in results.
  */
-trait LoggerFactoryApi[-R] {
+trait OldLoggerFactoryApi[-R] {
 
   /** The type of result returned by this API. */
   type Result[+A] <: RIO[R, A]
@@ -37,7 +37,7 @@ trait LoggerFactoryApi[-R] {
    * @param name The name of the logger.
    * @return A logger named according to the name parameter.
    */
-  def apply(name: String): Result[LoggerOld]
+  def apply(name: String): Result[OldLogger]
 
   /**
    * Returns a logger named corresponding to the class passed as parameter.
@@ -45,7 +45,7 @@ trait LoggerFactoryApi[-R] {
    * @tparam T The type of the class to name the logger after.
    * @return A logger named corresponding to the class passed as parameter.
    */
-  final def apply[T: ClassTag](): Result[LoggerOld] =
+  final def apply[T: ClassTag](): Result[OldLogger] =
     apply(implicitly[ClassTag[T]].runtimeClass.getName)
 
 }
@@ -53,14 +53,14 @@ trait LoggerFactoryApi[-R] {
 /**
  * Definitions that support the `LoggerFactoryApi` trait.
  */
-object LoggerFactoryApi {
+object OldLoggerFactoryApi {
 
   /**
    * Base type for logger factory API implementations.
    *
    * @tparam R The environment type to require in results.
    */
-  trait Service[R] extends LoggerFactoryApi[R] {
+  trait Service[R] extends OldLoggerFactoryApi[R] {
 
     /* Configure the type of result returned by this API. */
     final override type Result[+A] = RIO[R, A]

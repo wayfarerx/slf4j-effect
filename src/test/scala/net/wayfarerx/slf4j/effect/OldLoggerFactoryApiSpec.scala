@@ -24,17 +24,17 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 /**
  * Test suite for the logger factory API operations.
  */
-final class LoggerFactoryApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
+final class OldLoggerFactoryApiSpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
-  private val mockLogger = mock[LoggerOld]
+  private val mockLogger = mock[OldLogger]
 
-  private val mockLoggerFactory = mock[LoggerFactoryApi.Service[Any]]
+  private val mockLoggerFactory = mock[OldLoggerFactoryApi.Service[Any]]
 
   private val runtime = new DefaultRuntime {}
 
   "LoggerFactoryApi" should "return loggers by class name" in {
     (mockLoggerFactory.apply(_: String)).expects(getClass.getName).once().returns(UIO(mockLogger))
-    runtime.unsafeRun(mockLoggerFactory.apply[LoggerFactoryApiSpec]()) shouldBe mockLogger
+    runtime.unsafeRun(mockLoggerFactory.apply[OldLoggerFactoryApiSpec]()) shouldBe mockLogger
   }
 
 }

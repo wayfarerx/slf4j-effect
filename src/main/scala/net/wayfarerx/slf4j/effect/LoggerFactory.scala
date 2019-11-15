@@ -1,5 +1,5 @@
 /*
- * LoggerFactory.scala
+ * Logger.scala
  *
  * Copyright (c) 2019 wayfarerx.net <@thewayfarerx>
  *
@@ -15,131 +15,146 @@
 
 package net.wayfarerx.slf4j.effect
 
-import org.slf4j
+import cats.Monad
 
-import zio.{Task, ZIO}
-import zio.blocking.Blocking
-import zio.console.Console
+import language.higherKinds
+import reflect.ClassTag
+import cats.implicits._
+import cats.effect.{Effect, LiftIO, Sync}
+import org.slf4j
+import zio.{Runtime, Task}
+import zio.interop.catz._
 
 /**
- * Environment mix-in that exposes the logger factory API.
+ *
+ * @tparam F The type of effect that this logger factory uses.
  */
-trait LoggerFactory {
+trait LoggerFactory[F[_]] {
 
-  /** The exposed logger factory API. */
-  val loggerFactory: LoggerFactoryApi[Any]
+  /**
+   * Returns a logger named according to the name parameter.
+   *
+   * @param name The name of the logger.
+   * @return A logger named according to the name parameter.
+   */
+  def apply(name: String): F[Logger[F]]
+
+  /**
+   * Returns a logger named corresponding to the class passed as parameter.
+   *
+   * @tparam T The type of the class to name the logger after.
+   * @return A logger named corresponding to the class passed as parameter.
+   */
+  @inline final def apply[T: ClassTag](): F[Logger[F]] =
+    apply(implicitly[ClassTag[T]].runtimeClass.getName)
 
 }
 
 /**
- * The global logger factory service and definitions that support the `LoggerFactory` environment.
+ * The global SLF4J logger factory constructors and related definitions.
  */
-object LoggerFactory extends (LoggerFactoryApi[Any] => LoggerFactory) with LoggerFactoryApi.Service[LoggerFactory] {
+object LoggerFactory {
+
+  final private lazy val taskMonad = implicitly[Monad[Task]]
+
+  final private lazy val taskLiftIO = implicitly[LiftIO[Task]]
 
   /**
-   * Creates a new logger factory from the specified logger factory service.
+   * Creates a ZIO logger factory that wraps the global SLF4J logger factory.
    *
-   * @param loggerFactory The logger factory service to use in the new logger factory.
-   * @return A new logger factory from the specified logger factory service.
+   * @return A ZIO logger factory that wraps the global SLF4J logger factory.
    */
-  override def apply(loggerFactory: LoggerFactoryApi[Any]): LoggerFactory = {
-    val _loggerFactory = loggerFactory
-    new LoggerFactory {
-      override val loggerFactory = _loggerFactory
+  def apply(): Task[Service[Task]] =
+    Task(slf4j.LoggerFactory.getILoggerFactory) map apply
+
+  /**
+   * Creates a ZIO logger factory that wraps the specified SLF4J logger factory.
+   *
+   * @param slf4jLoggerFactory The SLF4J logger factory to wrap.
+   * @return A ZIO logger factory that wraps the specified SLF4J logger factory.
+   */
+  def apply(slf4jLoggerFactory: slf4j.ILoggerFactory): Service[Task] = {
+    val _slf4jLoggerFactory = slf4jLoggerFactory
+    new Service[Task] {
+
+      override def monad: Monad[Task] = taskMonad
+
+      override def liftIO: LiftIO[Task] = taskLiftIO
+
+      final override def slf4jLoggerFactory = _slf4jLoggerFactory
+
+      final override protected def lift[A](action: Task[A]) = action
+
     }
   }
 
-  /* Return a logger named according to the name parameter. */
-  override def apply(name: String): Result[LoggerOld] =
-    ZIO.accessM(_.loggerFactory(name))
+  /**
+   * Creates a cats-effect logger factory that wraps the global SLF4J logger factory.
+   *
+   * @tparam F The type of effect that the logger factory will use.
+   * @param runtime The optional ZIO runtime to use.
+   * @return A cats-effect logger factory that wraps the global SLF4J logger factory.
+   */
+  def using[F[_] : Sync : LiftIO](runtime: Runtime[Any] = slf4jEffectRuntime): F[Service[F]] =
+    implicitly[Sync[F]] delay slf4j.LoggerFactory.getILoggerFactory map (using[F](_, runtime))
 
   /**
-   * Implementation of the `LoggerFactory` environment using a SLF4J `ILoggerFactory`.
+   * Creates a cats-effect logger factory that wraps the specified SLF4J logger factory.
+   *
+   * @tparam F The type of effect that the logger factory will use.
+   * @param slf4jLogger The SLF4J logger factory to wrap.
+   * @param runtime     The optional ZIO runtime to use.
+   * @return A cats-effect logger factory that wraps the specified SLF4J logger factory.
    */
-  trait Live extends LoggerFactory {
-    self: Blocking with Console =>
+  def using[F[_] : Monad : LiftIO](
+    slf4jLogger: slf4j.ILoggerFactory,
+    runtime: Runtime[Any] = slf4jEffectRuntime
+  ): Service[F] = {
+    val _slf4jLogger = slf4jLogger
+    implicit val _runtime: Runtime[Any] = runtime
+    val taskEffect = implicitly[Effect[Task]]
+    new Service[F] {
 
-    /** The underlying SLF4J `ILoggerFactory`. */
-    val slf4jLoggerFactory: slf4j.ILoggerFactory
+      override def monad: Monad[F] = implicitly[Monad[F]]
 
-    /* Implement the logger factory API. */
-    final override val loggerFactory: LoggerFactoryApi[Any] = new LoggerFactoryApi.Service[Any] {
+      override def liftIO: LiftIO[F] = implicitly[LiftIO[F]]
 
-      /* Return a logger named according to the name parameter. */
-      override def apply(name: String): Result[LoggerOld] =
-        Task(slf4jLoggerFactory.getLogger(name)) map (LoggerOld.Live(_, self.blocking, self.console))
+      override def slf4jLoggerFactory = _slf4jLogger
+
+      override protected def lift[A](action: Task[A]) =
+        implicitly[LiftIO[F]].liftIO(taskEffect.toIO(action))
 
     }
-
   }
 
   /**
-   * Factory for live `LoggerFactory` implementations.
+   * Base class for effectful `LoggerFactory` implementations on top of the SLF4J API.
+   *
+   * @tparam F The type of effect that this logger factory uses.
    */
-  object Live extends ((
-    slf4j.ILoggerFactory,
-      Blocking.Service[Any],
-      Console.Service[Any]
-    ) => Live with Blocking with Console) {
+  trait Service[F[_]] extends LoggerFactory[F] {
+
+    /** The monad that describes the effect type. */
+    implicit def monad: Monad[F]
+
+    /** The IO lifter that describes the effect type. */
+    implicit def liftIO: LiftIO[F]
+
+    /** The underlying SLF4J logger factory to use. */
+    def slf4jLoggerFactory: slf4j.ILoggerFactory
+
+    /* Return a logger named according to the name parameter. */
+    final override def apply(name: String): F[Logger[F]] =
+      lift(Task(slf4jLoggerFactory.getLogger(name)) map (Logger.using[F](_)))
 
     /**
-     * Creates a live `LoggerFactory`.
+     * Lift an stand alone ZIO effect into the underlying effect type.
      *
-     * @return A live `LoggerFactory`.
+     * @tparam A The type of result produced by the ZIO effect.
+     * @param action The ZIO action to lift into the monadic type.
+     * @return The specified ZIO effect lifted into the underlying monadic type.
      */
-    def apply(): Task[Live with Blocking with Console] =
-      Task(slf4j.LoggerFactory.getILoggerFactory) map (Live(_))
-
-    /**
-     * Creates a live `LoggerFactory` with the specified blocking service.
-     *
-     * @param blocking The blocking service to use.
-     * @return A live `LoggerFactory` with the specified blocking service.
-     */
-    def apply(blocking: Blocking.Service[Any]): Task[Live with Blocking with Console] =
-      Task(slf4j.LoggerFactory.getILoggerFactory) map (Live(_, blocking))
-
-    /**
-     * Creates a live `LoggerFactory` with the specified console service.
-     *
-     * @param console The console service to use.
-     * @return A live `LoggerFactory` with the specified console service.
-     */
-    def apply(console: Console.Service[Any]): Task[Live with Blocking with Console] =
-      Task(slf4j.LoggerFactory.getILoggerFactory) map (Live(_, console = console))
-
-    /**
-     * Creates a live `LoggerFactory` with the specified blocking and console service.
-     *
-     * @param blocking The blocking service to use.
-     * @param console The console service to use.
-     * @return A live `LoggerFactory` with the specified blocking and console service.
-     */
-    def apply(blocking: Blocking.Service[Any], console: Console.Service[Any]): Task[Live with Blocking with Console] =
-      Task(slf4j.LoggerFactory.getILoggerFactory) map (Live(_, blocking, console))
-
-    /**
-     * Creates a live `LoggerFactory` implementation with the specified blocking and console service.
-     *
-     * @param slf4jLoggerFactory The SLF4J logger factory to use.
-     * @param blocking The blocking service to use, defaults to the global blocking service.
-     * @param console The console service to use, defaults to the global console service.
-     * @return A live `LoggerFactory` implementation with the specified blocking and console service.
-     */
-    override def apply(
-      slf4jLoggerFactory: slf4j.ILoggerFactory,
-      blocking: Blocking.Service[Any] = Blocking.Live.blocking,
-      console: Console.Service[Any] = Console.Live.console
-    ): Live with Blocking with Console = {
-      val _slf4jLoggerFactory = slf4jLoggerFactory
-      val _blocking = blocking
-      val _console = console
-      new Live with Blocking with Console {
-        override val slf4jLoggerFactory = _slf4jLoggerFactory
-        override val blocking = _blocking
-        override val console = _console
-      }
-    }
+    protected def lift[A](action: Task[A]): F[A]
 
   }
 

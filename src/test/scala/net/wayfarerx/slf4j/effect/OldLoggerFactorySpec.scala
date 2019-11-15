@@ -28,7 +28,7 @@ import org.scalatest.{FlatSpec, Matchers, OneInstancePerTest}
 /**
  * Test suite for logger factories.
  */
-final class LoggerFactorySpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
+final class OldLoggerFactorySpec extends FlatSpec with Matchers with OneInstancePerTest with MockFactory {
 
   private val mockSlf4jLogger = mock[Slf4jLogger]
 
@@ -37,16 +37,16 @@ final class LoggerFactorySpec extends FlatSpec with Matchers with OneInstancePer
   private val runtime = new DefaultRuntime {}
 
   "LoggerFactory" should "create named loggers" in {
-    val loggerFactory = LoggerFactory(LoggerFactory.Live(mockSlf4jLoggerFactory).loggerFactory)
+    val loggerFactory = OldLoggerFactory(OldLoggerFactory.Live(mockSlf4jLoggerFactory).loggerFactory)
     (mockSlf4jLoggerFactory.getLogger _).expects("logger").returning(mockSlf4jLogger).once()
-    runtime.unsafeRun(LoggerFactory("logger").provide(loggerFactory)) should not be null
+    runtime.unsafeRun(OldLoggerFactory("logger").provide(loggerFactory)) should not be null
   }
 
   it should "construct live instances from the global logger factory" in {
-    runtime.unsafeRun(LoggerFactory.Live()) should not be null
-    runtime.unsafeRun(LoggerFactory.Live(Blocking.Live.blocking)) should not be null
-    runtime.unsafeRun(LoggerFactory.Live(console = Console.Live.console)) should not be null
-    runtime.unsafeRun(LoggerFactory.Live(Blocking.Live.blocking, Console.Live.console)) should not be null
+    runtime.unsafeRun(OldLoggerFactory.Live()) should not be null
+    runtime.unsafeRun(OldLoggerFactory.Live(Blocking.Live.blocking)) should not be null
+    runtime.unsafeRun(OldLoggerFactory.Live(console = Console.Live.console)) should not be null
+    runtime.unsafeRun(OldLoggerFactory.Live(Blocking.Live.blocking, Console.Live.console)) should not be null
   }
 
 }

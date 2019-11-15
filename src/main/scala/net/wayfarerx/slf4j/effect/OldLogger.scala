@@ -26,17 +26,17 @@ import zio.console.Console
 /**
  * Environment mix-in that exposes the logger API.
  */
-trait LoggerOld {
+trait OldLogger {
 
   /** The exposed logger API. */
-  val logger: LoggerApi[Any]
+  val logger: OldLoggerApi[Any]
 
 }
 
 /**
  * The global logger service and definitions that support the `Logger` environment.
  */
-object LoggerOld extends (LoggerApi[Any] => LoggerOld) with LoggerApi.Service[LoggerOld] {
+object OldLogger extends (OldLoggerApi[Any] => OldLogger) with OldLoggerApi.Service[OldLogger] {
 
   /**
    * Creates a new logger from the specified logger service.
@@ -44,9 +44,9 @@ object LoggerOld extends (LoggerApi[Any] => LoggerOld) with LoggerApi.Service[Lo
    * @param logger The logger service to use in the new logger.
    * @return A new logger from the specified logger service.
    */
-  override def apply(logger: LoggerApi[Any]): LoggerOld = {
+  override def apply(logger: OldLoggerApi[Any]): OldLogger = {
     val _logger = logger
-    new LoggerOld {
+    new OldLogger {
       override val logger = _logger
     }
   }
@@ -72,14 +72,14 @@ object LoggerOld extends (LoggerApi[Any] => LoggerOld) with LoggerApi.Service[Lo
   /**
    * Implementation of the `Logger` environment using a SLF4J `Logger`.
    */
-  trait Live extends LoggerOld {
+  trait Live extends OldLogger {
     self: Blocking with Console =>
 
     /** The underlying SLF4J `Logger`. */
     val slf4jLogger: slf4j.Logger
 
     /* Implement the logger API. */
-    final override val logger: LoggerApi[Any] = new LoggerApi.Service[Any] {
+    final override val logger: OldLoggerApi[Any] = new OldLoggerApi.Service[Any] {
 
       /* Return true if the specified level is enabled. */
       override def isEnabled(level: Level) = level match {
